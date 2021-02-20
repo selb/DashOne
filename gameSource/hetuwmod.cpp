@@ -95,6 +95,8 @@ unsigned char HetuwMod::charKey_ShowMap;
 unsigned char HetuwMod::charKey_MapZoomIn;
 unsigned char HetuwMod::charKey_MapZoomOut;
 
+int HetuwMod::infertileAge;
+
 bool HetuwMod::upKeyDown;
 bool HetuwMod::downKeyDown;
 bool HetuwMod::leftKeyDown;
@@ -333,6 +335,8 @@ void HetuwMod::init() {
 	charKey_ShowGrid = 'k';
 	charKey_MakePhoto = 254;
 	charKey_Phex = '#';
+	
+	infertileAge = 104;
 
 	charKey_ShowMap = 'm';
 	charKey_MapZoomIn = 'u';
@@ -854,6 +858,8 @@ bool HetuwMod::setSetting( const char* name, const char* value ) {
 	if (strstr(name, "key_showgrid")) return setCharKey( charKey_ShowGrid, value );
 	if (strstr(name, "key_takephoto")) return setCharKey( charKey_MakePhoto, value );
 	if (strstr(name, "key_phex")) return setCharKey( charKey_Phex, value );
+	
+	if (strstr(name, "infertile_age")) infertileAge = atoi(value);
 
 	if (strstr(name, "init_show_names")) {
 		iDrawNames = (int)(value[0]-'0');
@@ -1066,6 +1072,8 @@ void HetuwMod::initSettings() {
 	writeCharKeyToStream( ofs, "key_pocket", charKey_Pocket );
 	writeCharKeyToStream( ofs, "key_showgrid", charKey_ShowGrid );
 	writeCharKeyToStream( ofs, "key_phex", charKey_Phex );
+	ofs << endl;
+	ofs << "infertile_age = " << infertileAge << endl;
 	ofs << endl;
 	ofs << "// WARNING: Jason doesnt want us to upload bogus photos and you might get banned if you do, read: OneLife/photoServer/protocol.txt" << endl;
 	ofs << "// How to use:" << endl;
@@ -1547,7 +1555,8 @@ void HetuwMod::livingLifeStep() {
 	}
 
 	if (stepCount % 46 == 0) {
-		if (!bFoundFamilyName) getOurFamilyName();
+		// if (!bFoundFamilyName) 
+			getOurFamilyName();
 		updatePlayersInRangePanel();
 	}
 
@@ -4177,9 +4186,12 @@ void HetuwMod::updatePlayersInRangePanel() {
 
 		ObjectRecord *obj = getObject(o->displayID);
 		int youngWoman = 0;
-		if ( !obj->male )
-			if ( livingLifePage->hetuwGetAge( o ) < 40 )
+		if ( !obj->male ) {
+			bool fertile = true;
+			if (o->name != NULL) fertile = strstr(o->name, "+INFERTILE+") == NULL;
+			if ( livingLifePage->hetuwGetAge( o ) < infertileAge && fertile )
 				youngWoman = 1;
+		}
 
 		if (isRelated(o)) {
 			familiesInRange[0]->count++;
