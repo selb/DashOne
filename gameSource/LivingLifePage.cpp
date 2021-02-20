@@ -57,6 +57,7 @@
 #include "hetuwmod.h"
 #include "phex.h"
 #include <string>
+#include "minitech.h"
 
 static ObjectPickable objectPickable;
 
@@ -143,6 +144,7 @@ static float pencilErasedFontExtraFade = 0.75;
 
 extern doublePair lastScreenViewCenter;
 doublePair LivingLifePage::hetuwGetLastScreenViewCenter() { return lastScreenViewCenter; }
+doublePair LivingLifePage::minitechGetLastScreenViewCenter() { return lastScreenViewCenter; }
 
 static char shouldMoveCamera = true;
 
@@ -1312,6 +1314,14 @@ static char *getDisplayObjectDescription( int inID ) {
     stripDescriptionComment( upper );
     return upper;
     }
+	
+char *LivingLifePage::minitechGetDisplayObjectDescription( int objId ) { 
+    ObjectRecord *o = getObject( objId );
+    if( o == NULL ) {
+		return "";
+    }
+	return getDisplayObjectDescription(objId);
+}
 
 
 
@@ -3184,6 +3194,14 @@ LivingLifePage::LivingLifePage()
 	// hetuw mod
 	mDeathReason = NULL;
 	HetuwMod::setLivingLifePage(this, &gameObjects, mMapContainedStacks, mMapSubContainedStacks, mMapD, mCurMouseOverID);
+	
+	minitech::setLivingLifePage(
+		this, 
+		&gameObjects, 
+		mMapD, 
+		pathFindingD, 
+		mMapContainedStacks, 
+		mMapSubContainedStacks);
 
     }
 
@@ -8373,6 +8391,7 @@ void LivingLifePage::draw( doublePair inViewCenter,
 
     for( int i=0; i<2; i++ ) {
         
+		if( !minitech::minitechEnabled ) //minitech
         if( ! takingPhoto && mCurrentHintTargetObject[i] > 0 ) {
             // draw pointer to closest hint target object
         
@@ -9658,6 +9677,7 @@ void LivingLifePage::draw( doublePair inViewCenter,
         }
     
     for( int i=0; i<NUM_HINT_SHEETS; i++ ) {
+		if ( !minitech::minitechEnabled ) //minitech
         if( ! equal( mHintPosOffset[i], mHintHideOffset[i] ) 
             &&
             mHintMessage[i] != NULL ) {
@@ -11088,6 +11108,15 @@ void LivingLifePage::draw( doublePair inViewCenter,
         }
 
 	HetuwMod::livingLifeDraw();
+
+	// minitech
+	float worldMouseX, worldMouseY;
+	getLastMouseScreenPos( &lastScreenMouseX, &lastScreenMouseY );
+	screenToWorld( lastScreenMouseX,
+				   lastScreenMouseY,
+				   &worldMouseX,
+				   &worldMouseY );
+	minitech::livingLifeDraw(worldMouseX, worldMouseY);
 
     if( vogMode ) {
         // draw again, so we can see picker
@@ -13907,6 +13936,7 @@ void LivingLifePage::step() {
         sendToServerSocket( (char*)"KA 0 0#" );
         }
     
+	minitech::livingLifeStep();
 	HetuwMod::livingLifeStep();
 
     if( showFPS ) {
@@ -17074,6 +17104,7 @@ void LivingLifePage::step() {
                             if( isHintFilterStringInvalid() ) {
                                 mNextHintIndex = 
                                     mHintBookmarks[ mNextHintObjectID ];
+									if (minitech::changeHintObjOnTouch) minitech::currentHintObjId = mNextHintObjectID;
                                 }
                             }
                         
@@ -18620,9 +18651,11 @@ void LivingLifePage::step() {
                 ourID = ourObject->id;
 
 				HetuwMod::initOnServerJoin();
+				minitech::initOnBirth();
                 if( ourID != lastPlayerID ) {
                     homePosStack.deleteAll();
 					HetuwMod::initOnBirth();
+					minitech::initOnBirth();
                     // different ID than last time, delete old home markers
                     oldHomePosStack.deleteAll();
                     }
@@ -23423,6 +23456,9 @@ static void freeSavedPath() {
 
 
 void LivingLifePage::pointerDown( float inX, float inY ) {
+	
+	if (minitech::livingLifePageMouseDown( inX, inY )) return;
+	
 	if (!mForceGroundClick && HetuwMod::livingLifePageMouseDown( inX, inY ))
 		return;
 
@@ -23932,6 +23968,7 @@ void LivingLifePage::pointerDown( float inX, float inY ) {
                 mNextHintObjectID = destID;
                 if( isHintFilterStringInvalid() ) {
                     mNextHintIndex = mHintBookmarks[ destID ];
+					if (minitech::changeHintObjOnTouch) minitech::currentHintObjId = destID;
                     }
                 }
             else if( tr->newActor > 0 && 
@@ -23940,6 +23977,7 @@ void LivingLifePage::pointerDown( float inX, float inY ) {
                 mNextHintObjectID = tr->newActor;
                 if( isHintFilterStringInvalid() ) {
                     mNextHintIndex = mHintBookmarks[ tr->newTarget ];
+					if (minitech::changeHintObjOnTouch) minitech::currentHintObjId = tr->newActor;
                     }
                 }
             else if( tr->newTarget > 0 ) {
@@ -23947,6 +23985,7 @@ void LivingLifePage::pointerDown( float inX, float inY ) {
                 mNextHintObjectID = tr->newTarget;
                 if( isHintFilterStringInvalid() ) {
                     mNextHintIndex = mHintBookmarks[ tr->newTarget ];
+					if (minitech::changeHintObjOnTouch) minitech::currentHintObjId = tr->newTarget;
                     }
                 }
             }
@@ -23958,6 +23997,7 @@ void LivingLifePage::pointerDown( float inX, float inY ) {
                 mNextHintObjectID = destID;
                 if( isHintFilterStringInvalid() ) {
                     mNextHintIndex = mHintBookmarks[ destID ];
+					if (minitech::changeHintObjOnTouch) minitech::currentHintObjId = destID;
                     }
                 }
             }
@@ -25337,6 +25377,7 @@ void LivingLifePage::keyDown( unsigned char inASCII ) {
 	if (!vogMode) {
 		if (Phex::hasFocus && mSayField.isFocused()) mSayField.unfocusAll();
 		if (HetuwMod::livingLifeKeyDown(inASCII)) return;
+		if (minitech::livingLifeKeyDown(inASCII)) return;
 	}
 
     switch( inASCII ) {
@@ -25849,6 +25890,11 @@ void LivingLifePage::keyDown( unsigned char inASCII ) {
                                     // not blank
                                     mHintFilterString = 
                                         stringDuplicate( trimmedFilterString );
+										
+									minitech::inputHintStrToSearch( mHintFilterString );
+                                    }
+								else {
+									minitech::inputHintStrToSearch( "" );
                                     }
                             
                                 delete [] trimmedFilterString;
