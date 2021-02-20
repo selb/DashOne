@@ -14294,6 +14294,11 @@ void LivingLifePage::step() {
                 }
 
 
+			if( SettingsManager::getIntSetting( "useLegacyLoginFormat", 1 ) ) {
+				clientTag = "";
+				}
+
+
             if( strlen( userEmail ) <= 80 ) {    
                 outMessage = autoSprintf( "%s %s %-80s %s %s %d%s#",
                                           loginWord,
