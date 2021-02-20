@@ -224,7 +224,7 @@ static char *photoSig = NULL;
 void LivingLifePage::hetuwSetTakingPhoto(bool b) { takingPhoto = b; }
 
 // no moving for first 20 seconds of life
-static double noMoveAge = 0.20;
+static double noMoveAge = 0.00; //Changed to 0 since this mechanics isn't in 2HOL yet
 
 
 static double emotDuration = 10;
