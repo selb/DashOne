@@ -152,6 +152,16 @@ static SpecialBiome getBiomeRecord( int inX, int inY ) {
     }
 
 
+
+char specialBiomesActive() {
+    if( curNumPlayers < minNumPlayers ) {
+        return false;
+        }
+    return true;
+    }
+
+
+
 char isBiomeAllowed( int inDisplayID, int inX, int inY, char inIgnoreFloor ) {
     if( curNumPlayers < minNumPlayers ) {
         return true;
@@ -236,6 +246,22 @@ char isPolylingual( int inDisplayID ) {
     }
 
 
+int getPolylingualRace( char inIgnorePopulationSize ) {
+    if( ! inIgnorePopulationSize && 
+        curNumPlayers < minNumPlayers ) {
+        return -1;
+        }
+    
+    
+    if( polylingualRaces.size() > 0 ) {
+        return polylingualRaces.getElementDirect( 0 );
+        }
+    
+    return -1;
+    }
+
+
+
 char *getBadBiomeMessage( int inDisplayID ) {
     if( curNumPlayers < minNumPlayers ) {
         return stringDuplicate( "BB\n#" );
@@ -312,4 +338,13 @@ const char *getBadBiomeName( ObjectRecord *inObject ) {
     return b->badBiomeName;
     }
 
+
+
+int getSpecialistRace( int inBiomeNumber ) {
+    if( inBiomeNumber >= MAX_BIOME_NUMBER || inBiomeNumber < 0 ) {
+        return -1;
+        }
+    
+    return specialBiomes[inBiomeNumber].specialistRace;
+    }
 

@@ -151,6 +151,12 @@ static double foodScaleFactorFloor = 0.5;
 static double foodScaleFactorHalfLife = 50;
 static double foodScaleFactorGamma = 1.5;
 
+static double newPlayerFoodDecrementSecondsBonus = 8;
+static int newPlayerFoodEatingBonus = 5;
+// first 10 hours of living
+static double newPlayerFoodBonusHalfLifeSeconds = 36000;
+
+
 
 static double indoorFoodDecrementSecondsBonus = 20.0;
 
@@ -1091,6 +1097,12 @@ typedef struct LiveObject {
         Craving cravingFood;
         int cravingFoodYumIncrement;
         char cravingKnown;
+        
+        // to give new players a boost
+        // set these at birth based on how long they have played so far
+        int personalEatBonus;
+        double personalFoodDecrementSecondsBonus;
+        
 
     } LiveObject;
 
@@ -1098,6 +1110,11 @@ typedef struct LiveObject {
 
 SimpleVector<LiveObject> players;
 SimpleVector<LiveObject> tutorialLoadingPlayers;
+
+
+int getNumPlayers() {
+    return players.size();
+    }
 
 
 
@@ -1266,6 +1283,56 @@ char isOwned( LiveObject *inPlayer, int inX, int inY ) {
 
 char isOwned( LiveObject *inPlayer, GridPos inPos ) {
     return isOwned( inPlayer, inPos.x, inPos.y );
+    }
+
+
+char isExiled( LiveObject *inViewer, LiveObject *inTarget );
+LiveObject *getLiveObject( int inID );
+
+
+
+static char isMapSpotLeaderOwned( LiveObject *inPlayer, int inX, int inY ) {    
+    // walk up leadership chain for inPlayer and see if anyone owns it
+        
+    LiveObject *nextToCheck = inPlayer;
+    
+    while( nextToCheck != NULL ) {
+        
+        if( isOwned( nextToCheck, inX, inY ) &&
+            ! isExiled( nextToCheck, inPlayer ) ) {
+            // found a leader above them who owns it
+            return true;
+            }
+            
+        int nextID = nextToCheck->followingID;
+        
+        if( nextID == -1 ) {
+            nextToCheck = NULL;
+            }
+        else {
+            nextToCheck = getLiveObject( nextID );
+            }
+        }
+    // found no leader above us who owns it and doesn't see
+    // us as exiled
+    // we're no ally of owner
+    return false;
+    }
+
+
+
+char isOwnedOrAllyOwned( LiveObject *inPlayer, ObjectRecord *inObject,
+                         int inX, int inY ) {
+    if( isOwned( inPlayer, inX, inY ) ) {
+        return true;
+        }
+    // do followers have access to this object?  If so, look for a leader above
+    // who owns it
+    else if( inObject->isFollowerOwned && 
+             isMapSpotLeaderOwned( inPlayer, inX, inY ) ) {
+        return true;
+        }
+    return false;
     }
 
 
@@ -1589,7 +1656,7 @@ static void addDeadlyMapSpot( GridPos inPos ) {
 
 
 
-static LiveObject *getLiveObject( int inID ) {
+LiveObject *getLiveObject( int inID ) {
     for( int i=0; i<players.size(); i++ ) {
         LiveObject *o = players.getElement( i );
         
@@ -3341,6 +3408,8 @@ double computeFoodDecrementTimeSeconds( LiveObject *inPlayer ) {
     
     // all player temp effects push us up above min
     value += minFoodDecrementSeconds;
+
+    value += inPlayer->personalFoodDecrementSecondsBonus;
 
     inPlayer->indoorBonusTime = 0;
     
@@ -6858,6 +6927,8 @@ static int getEatBonus( LiveObject *inPlayer ) {
              generation / eatBonusHalfLife )
         + eatBonusFloor );
     
+    b += inPlayer->personalEatBonus;
+
     return b;
     }
 
@@ -7749,7 +7820,7 @@ static char isLeader( LiveObject *inPlayer, int inPossibleLeaderID ) {
 
 
 // does inViewer see inTarget as exiled?
-static char isExiled( LiveObject *inViewer, LiveObject *inTarget ) {
+char isExiled( LiveObject *inViewer, LiveObject *inTarget ) {
     for( int e=0; e< inTarget->exiledByIDs.size(); e++ ) {
         int exilerID = inTarget->exiledByIDs.getElementDirect( e );
                     
@@ -8323,6 +8394,14 @@ int processLoggedInPlayer( int inAllowOrForceReconnect,
     foodScaleFactorGamma = 
         SettingsManager::getFloatSetting( "foodScaleFactorGamma", 1.5 );
 
+    newPlayerFoodEatingBonus = 
+        SettingsManager::getIntSetting( "newPlayerFoodEatingBonus", 5 );
+    newPlayerFoodDecrementSecondsBonus =
+        SettingsManager::getFloatSetting( "newPlayerFoodDecrementSecondsBonus",
+                                          8 );
+    newPlayerFoodBonusHalfLifeSeconds =
+        SettingsManager::getFloatSetting( "newPlayerFoodBonusHalfLifeSeconds",
+                                          36000 );
 
     babyBirthFoodDecrement = 
         SettingsManager::getIntSetting( "babyBirthFoodDecrement", 10 );
@@ -8569,8 +8648,9 @@ int processLoggedInPlayer( int inAllowOrForceReconnect,
                 }
 
             GridPos motherPos = getPlayerPos( player );
-            int homeStatus = isHomeland( motherPos.x, motherPos.y,
-                                         player->lineageEveID );
+            int homeStatus = isBirthland( motherPos.x, motherPos.y,
+                                          player->lineageEveID,
+                                          player->displayID );
             
             if( homeStatus == -1 ||
                 ( homeStatus == 0 &&
@@ -9187,10 +9267,8 @@ int processLoggedInPlayer( int inAllowOrForceReconnect,
     newObject.indoorBonusTime = 0;
     newObject.indoorBonusFraction = 0;
 
-
-    newObject.foodDecrementETASeconds =
-        currentTime + 
-        computeFoodDecrementTimeSeconds( &newObject );
+    
+    
                 
     newObject.foodUpdate = true;
     newObject.lastAteID = 0;
@@ -9477,8 +9555,20 @@ int processLoggedInPlayer( int inAllowOrForceReconnect,
         }
     else if( inTutorialNumber > 0 ) {
         
-        int startX = maxPlacementX + tutorialOffsetX;
+        // different tutorials go in different x blocks, far apart
+        int startX = maxPlacementX + tutorialOffsetX * inTutorialNumber;
         int startY = tutorialCount * 40;
+
+        if( inTutorialNumber > 1 ) {
+            // everything beyond tutorial 1 is placed randomly dispersed
+            // in a big square
+            int randX = randSource.getRandomBoundedInt( 0, tutorialOffsetX );
+            int randY = randSource.getRandomBoundedInt( 0, tutorialOffsetX );
+            
+            startX += randX;
+            startY += randY;
+            }
+        
 
         newObject.xs = startX;
         newObject.ys = startY;
@@ -9595,6 +9685,19 @@ int processLoggedInPlayer( int inAllowOrForceReconnect,
                         newObject.id, &startX, &startY, 
                         &otherPeoplePos, allowEveRespawn, 
                         incrementEvePlacement );
+
+        
+        if( players.size() >= 
+            SettingsManager::getIntSetting( "minActivePlayersForBirthlands", 
+                                            15 )
+            &&
+            SettingsManager::getIntSetting( "specialBiomeBandMode", 0 ) ) {
+            
+            // shift Eve y position into center of her biome band
+            startY = getSpecialBiomeBandYCenterForRace( 
+                getObject( newObject.displayID )->race );
+            }
+        
 
         if( inCurseStatus.curseLevel > 0 ) {
             // keep cursed players away
@@ -9916,6 +10019,31 @@ int processLoggedInPlayer( int inAllowOrForceReconnect,
             }
         }
 
+    newObject.personalEatBonus = 0;
+    newObject.personalFoodDecrementSecondsBonus = 0;
+
+    if( ! newObject.isTutorial &&
+        isUsingStatsServer() &&
+        ! newObject.lifeStats.error ) {
+        
+        int sec = newObject.lifeStats.lifeTotalSeconds;
+
+        double halfLifeFactor = 
+            pow( 0.5, sec / newPlayerFoodBonusHalfLifeSeconds );
+        
+
+        newObject.personalEatBonus = 
+            lrint( halfLifeFactor * newPlayerFoodEatingBonus );
+        
+        newObject.personalFoodDecrementSecondsBonus =
+            lrint( halfLifeFactor * newPlayerFoodDecrementSecondsBonus );
+        }
+    
+    newObject.foodDecrementETASeconds =
+        currentTime + 
+        computeFoodDecrementTimeSeconds( &newObject );
+
+        
     if( forceSpawn ) {
         newObject.forceSpawn = true;
         newObject.xs = forceSpawnInfo.pos.x;
@@ -10250,6 +10378,36 @@ int processLoggedInPlayer( int inAllowOrForceReconnect,
 
 
 
+
+
+static char isMapSpotBlockingForPlayer( LiveObject *inPlayer,
+                                        int inX, int inY ) {
+    
+    if( isMapSpotBlocking( inX, inY ) ) {
+        return true;
+        }
+    int oID = getMapObject( inX, inY );
+    
+    if( oID <= 0 ) {
+        return false;
+        }
+
+    ObjectRecord *o = getObject( oID );
+    
+    if( o->isOwned && o->blocksNonFollower ) {
+        
+        if( isMapSpotLeaderOwned( inPlayer, inX, inY ) ) {
+            return false;
+            }
+        return true;
+        }
+    
+    return false;    
+    }
+
+
+
+
 static void processWaitingTwinConnection( FreshConnection inConnection ) {
     AppLog::infoF( "Player %s waiting for twin party of %d", 
                    inConnection.email,
@@ -10474,7 +10632,8 @@ static void processWaitingTwinConnection( FreshConnection inConnection ) {
 
 
 // doesn't check whether dest itself is blocked
-static char directLineBlocked( GridPos inSource, GridPos inDest ) {
+static char directLineBlocked( LiveObject *inShooter,
+                               GridPos inSource, GridPos inDest ) {
     // line algorithm from here
     // https://en.wikipedia.org/wiki/Bresenham's_line_algorithm
     
@@ -10499,7 +10658,7 @@ static char directLineBlocked( GridPos inSource, GridPos inDest ) {
         
         // just walk through y
         for( int y=inSource.y; y != inDest.y; y += yStep ) {
-            if( isMapSpotBlocking( inSource.x, y ) ) {
+            if( isMapSpotBlockingForPlayer( inShooter, inSource.x, y ) ) {
                 return true;
                 }
             }
@@ -10511,7 +10670,7 @@ static char directLineBlocked( GridPos inSource, GridPos inDest ) {
         
         int y = inSource.y;
         for( int x=inSource.x; x != inDest.x || y != inDest.y; x += xStep ) {
-            if( isMapSpotBlocking( x, y ) ) {
+            if( isMapSpotBlockingForPlayer( inShooter, x, y ) ) {
                 return true;
                 }
             error += deltaErr;
@@ -10524,7 +10683,7 @@ static char directLineBlocked( GridPos inSource, GridPos inDest ) {
             // we may need to take multiple steps in y
             // if line is vertically oriented
             while( error >= 0.5 ) {
-                if( isMapSpotBlocking( x, y ) ) {
+                if( isMapSpotBlockingForPlayer( inShooter, x, y ) ) {
                     return true;
                     }
 
@@ -13752,7 +13911,7 @@ void executeKillAction( int inKillerIndex,
                                  playerPos );
                                 
             if( heldObj->deadlyDistance >= d &&
-                ! directLineBlocked( playerPos, 
+                ! directLineBlocked( nextPlayer, playerPos, 
                                      targetPos ) ) {
                 // target is close enough
                 // and no blocking objects along the way                
@@ -14899,7 +15058,8 @@ static void tryToForceDropHeld(
 // access blocked b/c of access direction or ownership?
 static char isAccessBlocked( LiveObject *inPlayer, 
                              int inTargetX, int inTargetY,
-                             int inTargetID ) {
+                             int inTargetID,
+                             int inHoldingID = 0 ) {
     int target = inTargetID;
     
     int x = inTargetX;
@@ -14933,8 +15093,41 @@ static char isAccessBlocked( LiveObject *inPlayer,
             }
         if( targetObj->isOwned ) {
             // make sure player owns this pos
+            // (or is part of ally pool that can access it)
             ownershipBlocked = 
-                ! isOwned( inPlayer, x, y );
+                ! isOwnedOrAllyOwned( inPlayer, targetObj, x, y );
+            
+            if( ownershipBlocked && 
+                targetObj->isTempOwned &&
+                inHoldingID > 0 ) {
+                // if they are attempting a transition that leads to a
+                // non-owned object, let it through, because ownership
+                // of the target object is on shaky footing
+                TransRecord *t = getTrans( inHoldingID, inTargetID );
+                if( t != NULL && 
+                    ( t->newTarget <= 0 ||
+                      ! getObject( t->newTarget )->isOwned ) ) {
+                    ownershipBlocked = false;
+                    }
+                }
+            else if( ! ownershipBlocked &&
+                     ! targetObj->isTempOwned &&
+                     inHoldingID > 0 &&
+                     ! isOwned( inPlayer, x, y ) ) {
+                // they're not blocked, but they don't own it directly
+                // their leader must own it
+                // make sure this action isn't going to destroy it
+                // (only a direct owner, not a follower, can destroy owned
+                //  property and convert it into a non-owned object)
+                TransRecord *t = getTrans( inHoldingID, inTargetID );
+                if( t != NULL && 
+                    ( t->newTarget <= 0 ||
+                      ! getObject( t->newTarget )->isOwned ) ) {
+                    ownershipBlocked = true;
+                    }
+                }
+            
+            
 
             if( ownershipBlocked ) {
                 GridPos ourPos = getPlayerPos( inPlayer );
@@ -15091,16 +15284,28 @@ static LiveObject *getPlayerByName( char *inName, LiveObject *inSkip ) {
 
 static void findExpertForPlayer( LiveObject *inPlayer, 
                                  ObjectRecord *inTouchedObject ) {
+    
+    if( ! specialBiomesActive() ) {
+        return;
+        }
+
     int race = getSpecialistRace( inTouchedObject );
+    
+
+    char polylingual = false;
+    if( getObject( inPlayer->displayID )->race  == race ) {
+        // they ARE this expert themselves
+        
+        // point them toward polylingual race instead
+        race = getPolylingualRace();
+        polylingual = true;
+        }
+
     
     if( race == -1 ) {
         return;
         }
 
-    if( getObject( inPlayer->displayID )->race  == race ) {
-        // they ARE this expert themselves
-        return;
-        }
     
     GridPos playerPos = getPlayerPos( inPlayer );
 
@@ -15157,7 +15362,13 @@ static void findExpertForPlayer( LiveObject *inPlayer,
     
     char *bName = NULL;
     
-    if( biomeName != NULL ) {
+    if( polylingual ) {
+        if( bName != NULL ) {
+            delete [] bName;
+            }
+        bName = stringDuplicate( "OTHER LANGUAGES" );
+        }
+    else if( biomeName != NULL ) {
         char found;
         bName = replaceAll( biomeName, "_", " ", &found );
         }
@@ -15455,7 +15666,7 @@ static void leaderDied( LiveObject *inLeader ) {
     if( inLeader->followingID == -1 &&
         directFollowers.size() > 0 ) {
         
-        LiveObject *fittestFollower = NULL;
+        LiveObject *fittestFollower = directFollowers.getElementDirect( 0 );
         double fittestFitness = 0;
         
         for( int i=0; i<directFollowers.size(); i++ ) {
@@ -15551,6 +15762,36 @@ static void leaderDied( LiveObject *inLeader ) {
                                         newLeaderName );
         delete [] newLeaderName;
         }
+
+    
+    if( newLeaderO != NULL ) {
+        // have a new leader
+        // before removeAllOwnership happens externally (which passes property
+        // to children)
+        // pass +leaderInherit owned stuff to this new leader now
+
+        for( int i=0; i<inLeader->ownedPositions.size(); i++ ) {
+            GridPos *p = inLeader->ownedPositions.getElement( i );
+
+            int oID = getMapObject( p->x, p->y );
+            
+            if( oID <= 0 ) {
+                continue;
+                }
+
+            ObjectRecord *o = getObject( oID );
+            
+            if( strstr( o->description, "+leaderInherit" ) != NULL ) {
+                recentlyRemovedOwnerPos.push_back( *p );
+                newOwnerPos.push_back( *p );
+                newLeaderO->ownedPositions.push_back( *p );
+
+                inLeader->ownedPositions.deleteElement( i );
+                }
+            }
+        }
+        
+
 
     // tell followers about our death
     for( int i=0; i<oldFollowers.size(); i++ ) {
@@ -18024,14 +18265,19 @@ int main() {
 
                 GridPos deadlyDestPos = curPos;
 
-                if( ! riding && curOverID > 0 ) {
+                if( ! riding ) {
                     // check if player is standing on
-                    // a non-deadly object
+                    // a non-deadly object OR on nothing
                     // if so, moving deadly objects might still be able
                     // to get them
-                    ObjectRecord *curOverObj = getObject( curOverID );
+                    ObjectRecord *curOverObj = NULL;
                     
-                    if( ! curOverObj->permanent ||
+                    if( curOverID > 0 ) {
+                        curOverObj = getObject( curOverID );
+                        }
+                    
+                    if( curOverObj == NULL ||
+                        ! curOverObj->permanent ||
                         curOverObj->deadlyDistance == 0 ) {
                         
                         int movingDestX, movingDestY;
@@ -19539,8 +19785,10 @@ int main() {
                                 // blocking us
                                 char currentBlocked = false;
                                 
-                                if( isMapSpotBlocking( lastValidPathStep.x,
-                                                       lastValidPathStep.y ) ) {
+                                if( isMapSpotBlockingForPlayer( 
+                                        nextPlayer,
+                                        lastValidPathStep.x,
+                                        lastValidPathStep.y ) ) {
                                     currentBlocked = true;
                                     }
                                 
@@ -19551,7 +19799,8 @@ int main() {
                                     GridPos pos = 
                                         unfilteredPath.getElementDirect(p);
 
-                                    if( isMapSpotBlocking( pos.x, pos.y ) ) {
+                                    if( isMapSpotBlockingForPlayer( 
+                                            nextPlayer, pos.x, pos.y ) ) {
                                         // blockage in middle of path
                                         // terminate path here
                                         truncated = 1;
@@ -19914,21 +20163,29 @@ int main() {
                                     // in/out of home
 
                                     int homeStart =
-                                        isHomeland( 
+                                        isBirthland( 
                                             nextPlayer->xs,
                                             nextPlayer->ys,
-                                            nextPlayer->lineageEveID );
+                                            nextPlayer->lineageEveID,
+                                            nextPlayer->displayID );
                                     
                                     int endStep = nextPlayer->pathLength - 1;
                                     
                                     int homeEnd =
-                                        isHomeland( 
+                                        isBirthland( 
                                             nextPlayer->pathToDest[endStep].x,
                                             nextPlayer->pathToDest[endStep].y,
-                                            nextPlayer->lineageEveID );
+                                            nextPlayer->lineageEveID,
+                                            nextPlayer->displayID );
 
                                     char boundaryCross = false;
-                                    if( homeStart == homeEnd &&
+
+                                    // skip this now
+                                    // used to want to emphasize being homesick
+                                    // again when ENTERING another homeland
+                                    // but we don't need to do this anymore
+                                    if( false && 
+                                        homeStart == homeEnd &&
                                         homeEnd == -1 ) {
                                         // player still outside homeland
                                         // but did they cross a boundary
@@ -20081,17 +20338,25 @@ int main() {
                         SimpleVector<char *> *tokens = 
                             tokenizeString( m.saidText );
 
-                        char **tokensArray = 
-                            tokens->getElementArray();
+                        char *cleanedString;
+                        if( tokens->size() > 0 ) {
                         
-                        // join words with single spaces
-                        char *cleanedString = join( tokensArray,
-                                                    tokens->size(),
-                                                    " " );
+                            char **tokensArray = 
+                                tokens->getElementArray();
                         
-                        tokens->deallocateStringElements();
+                            // join words with single spaces
+                            cleanedString = join( tokensArray,
+                                                  tokens->size(),
+                                                  " " );
+                        
+                            tokens->deallocateStringElements();
+                            delete [] tokensArray;
+                            }
+                        else {
+                            cleanedString = stringDuplicate( "" );
+                            }
+
                         delete tokens;
-                        delete [] tokensArray;
                         
                         delete [] m.saidText;
                         m.saidText = cleanedString;
@@ -20406,7 +20671,39 @@ int main() {
                                      otherToFollow->id ) {
                                 nextPlayer->followingID = otherToFollow->id;
                                 nextPlayer->followingUpdate = true;
-                                
+
+
+                                if( ! isExiled( otherToFollow,
+                                                nextPlayer )
+                                    && 
+                                    nextPlayer->lineageEveID !=
+                                    otherToFollow->lineageEveID ) {
+
+                                    // tell the new leader about their
+                                    // new follower who is from another family
+
+                                    const char *name = "NAMELESS PERSON";
+                                    if( nextPlayer->name != NULL ) {
+                                        name = nextPlayer->name;
+                                        }
+                                    char *message = autoSprintf( 
+                                        "PS\n"
+                                        "%d/0 OUTSIDER %s IS MY NEW FOLLOWER "
+                                        "*visitor %d *map %d %d\n#",
+                                        otherToFollow->id,
+                                        name,
+                                        nextPlayer->id,
+                                        nextPlayer->xs - 
+                                        otherToFollow->birthPos.x,
+                                        nextPlayer->ys - 
+                                        otherToFollow->birthPos.y );
+                                    sendMessageToPlayer( otherToFollow, 
+                                                         message, 
+                                                         strlen( message ) );
+                                    delete [] message; 
+                                    }
+
+
                                 if( otherToFollow->leadingColorIndex == -1 ) {
                                     otherToFollow->leadingColorIndex =
                                         getUnusedLeadershipColor();
@@ -20926,7 +21223,8 @@ int main() {
                                                      playerPos );
                                 
                                 if( heldObj->useDistance >= d &&
-                                    ! directLineBlocked( playerPos, 
+                                    ! directLineBlocked( nextPlayer,
+                                                         playerPos, 
                                                          targetPos ) ) {
                                     distanceUseAllowed = true;
                                     }
@@ -20965,8 +21263,20 @@ int main() {
                                         if( isGridAdjacent( testX, m.y,
                                                             nextPlayer->xd,
                                                             nextPlayer->yd ) ) {
-                                            isAdjacent = true;
-                                            break;
+                                            // don't count wide object
+                                            // as adjacent if it hangs
+                                            // out over another blocking
+                                            // object (prevent wide truck
+                                            // from being stolen through
+                                            // fence)
+                                            int blockOID =
+                                                getMapObject( testX, m.y );
+                                            if( blockOID == 0 ||
+                                                ! getObject( blockOID )->
+                                                blocksWalking ) {
+                                                isAdjacent = true;
+                                                break;
+                                                }
                                             }
                                         }
                                     if( ! isAdjacent )
@@ -20976,8 +21286,14 @@ int main() {
                                         if( isGridAdjacent( testX, m.y,
                                                             nextPlayer->xd,
                                                             nextPlayer->yd ) ) {
-                                            isAdjacent = true;
-                                            break;
+                                            int blockOID =
+                                                getMapObject( testX, m.y );
+                                            if( blockOID == 0 ||
+                                                ! getObject( blockOID )->
+                                                blocksWalking ) {
+                                                isAdjacent = true;
+                                                break;
+                                                }
                                             }
                                         }
                                     }
@@ -21026,7 +21342,8 @@ int main() {
                             int oldHolding = nextPlayer->holdingID;
                             
                             char accessBlocked =
-                                isAccessBlocked( nextPlayer, m.x, m.y, target );
+                                isAccessBlocked( nextPlayer, m.x, m.y, target,
+                                                 oldHolding );
                             
                             if( accessBlocked ) {
                                 // ignore action from wrong side
@@ -21463,7 +21780,8 @@ int main() {
                                             r = NULL;
                                             }
                                         }
-                                    if( newTargetObj->isBiomeLimited &&
+                                    if( r != NULL &&
+                                        newTargetObj->isBiomeLimited &&
                                         ! canBuildInBiome( 
                                             newTargetObj,
                                             getMapBiome( m.x,
@@ -22168,6 +22486,41 @@ int main() {
                                                                   m.y ) ) ) {
                                             // can't make this object
                                             // in this biome
+                                            canPlace = false;
+                                            }
+                                        else if( newTargetObj->blocksWalking &&
+                                                 ( ( newTargetObj->sideAccess 
+                                                     &&
+                                                     ! isBiomeAllowedForPlayer( 
+                                                         nextPlayer, 
+                                                         m.x - 1, 
+                                                         m.y ) &&
+                                                     ! isBiomeAllowedForPlayer( 
+                                                         nextPlayer, 
+                                                         m.x + 1, 
+                                                         m.y ) )
+                                                   ||
+                                                   ( newTargetObj->noBackAccess
+                                                     &&
+                                                     ! isBiomeAllowedForPlayer( 
+                                                         nextPlayer, 
+                                                         m.x, 
+                                                         m.y - 1 ) )
+                                                   ||
+                                                   ( ! isBiomeAllowedForPlayer( 
+                                                       nextPlayer, 
+                                                       m.x, 
+                                                       m.y + 1 ) &&
+                                                     ! isBiomeAllowedForPlayer( 
+                                                         nextPlayer, 
+                                                         m.x, 
+                                                         m.y - 1 ) ) ) ) {
+                                            // we're setting down something that
+                                            // will block us walking to that 
+                                            // tile again
+                                            // So we'll need to access it from
+                                            // an adjacent tile, and those
+                                            // adjacent tiles are in bad biomes
                                             canPlace = false;
                                             }
                                         }
@@ -23863,7 +24216,7 @@ int main() {
             if( curTime - s->killStartTime  > delay &&
                 s->posseSize >= s->minPosseSizeForKill &&
                 getObject( killer->holdingID )->deadlyDistance >= dist &&
-                ! directLineBlocked( playerPos, targetPos ) ) {
+                ! directLineBlocked( killer, playerPos, targetPos ) ) {
                 // enough warning time has passed
                 // and
                 // posse meets min size requirements
@@ -28607,6 +28960,13 @@ char getUsesMultiplicativeBlending( int inID ) {
     }
 
 
+
+char getNoFlip( int inID ) {
+    return false;
+    }
+
+
+
 void toggleMultiplicativeBlend( char inMultiplicative ) {
     }
 
@@ -28632,5 +28992,10 @@ void startOutputAllFrames() {
     }
 
 void stopOutputAllFrames() {
+    }
+
+
+char realSpriteBank() {
+    return false;
     }
 
