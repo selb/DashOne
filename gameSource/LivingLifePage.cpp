@@ -13556,7 +13556,7 @@ void LivingLifePage::step() {
             
             if( closestIsFinal ) {
                 // done with tutorial for good, unless they request it
-                SettingsManager::setSetting( "tutorialDone", 2 );
+                SettingsManager::setSetting( "tutorialDone", mTutorialNumber );
                 }
             
 
@@ -22338,11 +22338,12 @@ void LivingLifePage::makeActive( char inFresh ) {
 
 
     int tutorialDone = SettingsManager::getIntSetting( "tutorialDone", 0 );
+    int useLegacyTutorialNumbering = SettingsManager::getIntSetting( "useLegacyTutorialNumbering", 1 );
     
     if( tutorialDone == 0 ) {
         mTutorialNumber = 1;
         }
-    else if( tutorialDone == 1 ) {
+    else if( tutorialDone == 1 && !useLegacyTutorialNumbering ) {
         mTutorialNumber = 2;
         }
     else {
