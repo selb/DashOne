@@ -13556,7 +13556,7 @@ void LivingLifePage::step() {
             
             if( closestIsFinal ) {
                 // done with tutorial for good, unless they request it
-                SettingsManager::setSetting( "tutorialDone", mTutorialNumber );
+                SettingsManager::setSetting( "tutorialDone", 2 );
                 }
             
 
