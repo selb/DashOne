@@ -146,10 +146,10 @@ SettingsPage::~SettingsPage() {
 void SettingsPage::actionPerformed( GUIComponent *inTarget ) {
     if( inTarget == &mBackButton ) {
         
-        char *seed = mSpawnSeed.getAndUpdateList();
+        char *seedList = mSpawnSeed.getAndUpdateList();
         
-        SettingsManager::setSetting( "spawnSeed", seed );
-        delete [] seed;
+        SettingsManager::setSetting( "spawnSeed", seedList );
+        delete [] seedList;
         
         setSignal( "back" );
         setMusicLoudness( 0 );
