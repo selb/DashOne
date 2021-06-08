@@ -25683,9 +25683,7 @@ void LivingLifePage::keyDown( unsigned char inASCII ) {
                                 sendToServerSocket( message );
                                 delete [] message;
                                 }
-                            else if( commandTyped( typedText, "dieCommand" ) 
-                                     &&
-                                     computeCurrentAge( ourLiveObject ) < 2 ) {
+                            else if( commandTyped( typedText, "dieCommand" ) ) {
                                 // die command issued from baby
                                 char *message = 
                                     autoSprintf( "DIE 0 0#" );
