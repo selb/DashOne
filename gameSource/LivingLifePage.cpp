@@ -10276,6 +10276,11 @@ void LivingLifePage::draw( doublePair inViewCenter,
 
         setDrawColor( 1, 1, 1, 1 );
         toggleMultiplicativeBlend( true );
+
+		// hetuw mod
+		int hetuwFoodStoreWithHolding = ourLiveObject->foodStore;
+		if( ourLiveObject->holdingID > 0 && getObject( ourLiveObject->holdingID )->foodValue > 0 )
+			hetuwFoodStoreWithHolding += getObject( ourLiveObject->holdingID )->foodValue + 2;
 		
         for( int i=0; i<ourLiveObject->foodCapacity; i++ ) {
             doublePair pos = { lastScreenViewCenter.x - 590, 
@@ -10291,6 +10296,11 @@ void LivingLifePage::draw( doublePair inViewCenter,
                     mHungerBoxFillSprites[ i % NUM_HUNGER_BOX_SPRITES ], 
                     pos );
                 }
+			else if( i < hetuwFoodStoreWithHolding ) { // hetuw mod
+                drawSprite( 
+                    mHungerBoxFillSprites[ i % NUM_HUNGER_BOX_SPRITES ], 
+                    pos, 0.4 );
+				}
             else if( i < ourLiveObject->maxFoodStore ) {
                 drawSprite( 
                     mHungerBoxFillErasedSprites[ i % NUM_HUNGER_BOX_SPRITES ], 
