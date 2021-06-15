@@ -352,9 +352,7 @@ void ExistingAccountPage::makeActive( char inFresh ) {
         mViewAccountButton.setVisible( false );
         }
 		
-	mFamilyTreesButton.setVisible( false );
 	mReviewButton.setVisible( false );
-	mTechTreeButton.setVisible( false );
     }
 
 
