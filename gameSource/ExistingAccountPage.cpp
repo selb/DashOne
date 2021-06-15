@@ -42,7 +42,7 @@ extern char loginEditOverride;
 
 ExistingAccountPage::ExistingAccountPage()
         : mEmailField( mainFont, 0, 128, 10, false, 
-                       translate( "USERNAME:" ),
+                       translate( "username" ),
                        NULL,
                        // forbid only spaces and backslash and 
                        // single/double quotes 
@@ -168,7 +168,7 @@ ExistingAccountPage::ExistingAccountPage()
     
     mAtSignButton.setMouseOverTip( translate( "atSignTip" ) );
 
-    mLoginButton.setMouseOverTip( translate( "TYPE -KEY ON OUR DISCORD TO GET ACCOUNT" ) );
+    mLoginButton.setMouseOverTip( translate( "getAccountTip" ) );
     mClearAccountButton.setMouseOverTip( translate( "clearAccountTip" ) );
     
     mFriendsButton.setMouseOverTip( translate( "friendsTip" ) );
