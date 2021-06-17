@@ -96,7 +96,9 @@ SettingsPage::SettingsPage()
     addComponent( &mRedetectButton );
     mRedetectButton.addActionListener( this );
 
-    addComponent( &mSpawnSeed);
+    addComponent( &mSpawnSeed );
+	
+	mSpawnSeed.usePasteShortcut( true );
     
     mRestartButton.setVisible( false );
     
