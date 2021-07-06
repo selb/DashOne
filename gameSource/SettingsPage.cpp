@@ -228,6 +228,12 @@ void SettingsPage::actionPerformed( GUIComponent *inTarget ) {
         int newSetting = mEnableNudeBox.getToggled();
         
         SettingsManager::setSetting( "nudeEnabled", newSetting );
+        
+        //extern variable in objectBank removes the need to restart the game
+        //we just need to set the new value to the variable and the game will
+        //start ignoring the nudity sprites every times it draws a new object
+        //mRestartButton.setVisible( mEnableNudeSetting != newSetting );
+        NudeToggle = newSetting;
         }
     else if( inTarget == &mRestartButton ||
              inTarget == &mRedetectButton ) {
@@ -559,8 +565,7 @@ void SettingsPage::updatePage() {
 
 bool SettingsPage::checkRestartRequired() {
     if( mOldFullscreenSetting != mFullscreenBox.getToggled() ||
-        mOldBorderlessSetting != mBorderlessBox.getToggled() ||
-        mEnableNudeSetting != mEnableNudeBox.getToggled()
+        mOldBorderlessSetting != mBorderlessBox.getToggled()
         ) {
         setStatusDirect( "RESTART REQUIRED##FOR NEW SETTINGS TO TAKE EFFECT", true );
         mRestartButton.setVisible( true );
