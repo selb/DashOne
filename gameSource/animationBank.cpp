@@ -73,7 +73,8 @@ static int mouthShapeFrame = 0;
 static char outputMouthFrames = false;
 static char mouthFrameOutputStarted = false;
 
-
+extern bool isTrippingEffectOn;
+extern void setTrippingColor( double x, double y );
 
 static char shouldFileBeCached( char *inFileName ) {
     if( strstr( inFileName, ".txt" ) != NULL ) {
@@ -3010,7 +3011,11 @@ HoldingPos drawObjectAnim( int inObjectID, int inDrawBehindSlots,
                 }
             
             int spriteID = obj->sprites[i];
-            
+			
+			if( !multiplicative && !workingSpriteFade[i] == 0 ) {
+				if( isTrippingEffectOn ) setTrippingColor( pos.x, pos.y );
+				}
+			
             if( drawMouthShapes && spriteID == mouthAnchorID &&
                 mouthShapeFrame < numMouthShapeFrames ) {
                 drawSprite( mouthShapeFrameList[ mouthShapeFrame ], 

@@ -95,7 +95,8 @@ int getMetaTriggerObject( int inTriggerIndex ) {
     return globalTriggers.getElementDirect( inTriggerIndex ).onTriggerID;
     }
 
-
+extern bool isTrippingEffectOn;
+extern void setTrippingColor( double x, double y );
 
 typedef struct ToolSetRecord {
         // can be null for a single-tool set
@@ -4574,6 +4575,10 @@ HoldingPos drawObject( ObjectRecord *inObject, int inDrawBehindSlots,
             if( additive ) {
                 toggleAdditiveBlend( true );
                 }
+				
+			if( !multiplicative ) {
+				if( isTrippingEffectOn ) setTrippingColor( pos.x, pos.y );
+				}
 
             SpriteHandle sh = getSprite( inObject->sprites[i] );
             if( sh != NULL ) {
