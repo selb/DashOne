@@ -30,6 +30,7 @@ extern Font *mainFont;
 
 extern char gamePlayingBack;
 
+extern char useSpawnSeed;
 extern char *userEmail;
 extern char *accountKey;
 
@@ -51,6 +52,11 @@ ExistingAccountPage::ExistingAccountPage()
                      translate( "accountKey" ),
                      // allow only ticket code characters
                      "23456789ABCDEFGHJKLMNPQRSTUVWXYZ-" ),
+          mSpawnSeed( mainFont, -360, -192, 10, false, 
+                                     translate( "spawnSeed" ),
+                                     NULL,
+                                     // forbid spaces
+                                     " " ),
           mAtSignButton( mainFont, 252, 128, "@" ),
           mPasteButton( mainFont, 0, -112, translate( "paste" ), 'v', 'V' ),
           mPasteEmailButton( mainFont, 0, 68, translate( "paste" ), 'v', 'V' ),
@@ -58,6 +64,7 @@ ExistingAccountPage::ExistingAccountPage()
                                       translate( "disableCustomServer" ) ),
           mBackground( "background.tga", 0.75f ),
           mGameLogo( "logo.tga", 1.0f, {-360, 256} ),
+          mSeedButton( mainFont, -360, -64, "SEED" ),
           mLoginButton( mainFont, -360, -64, translate( "loginButton" ) ),
           mFriendsButton( mainFont, -360, -64, translate( "friendsButton" ) ),
           mGenesButton( mainFont, 522, 300, translate( "genesButton" ) ),
@@ -93,6 +100,7 @@ ExistingAccountPage::ExistingAccountPage()
     
     
     mLoginButton.setPosition( mEmailField.getRightEdgeX() - ( mLoginButton.getWidth()/2 ), -64 );
+    mSeedButton.setPosition( -360 + ( mFriendsButton.getWidth() - mLoginButton.getWidth() )/2, -64 );
     mFriendsButton.setPosition( mEmailField.getLeftEdgeX() + ( mFriendsButton.getWidth()/2 ), -64 );
 
     if( userEmail != NULL && accountKey != NULL ) {
@@ -118,6 +126,7 @@ ExistingAccountPage::ExistingAccountPage()
     setButtonStyle( &mTutorialButton );
 
     setButtonStyle( &mDisableCustomServerButton );
+    setButtonStyle( &mSeedButton );
     
     mFields[0] = &mEmailField;
     mFields[1] = &mKeyField;
@@ -146,6 +155,9 @@ ExistingAccountPage::ExistingAccountPage()
 
     addComponent( &mViewAccountButton );
     addComponent( &mTutorialButton );
+
+    addComponent( &mSeedButton );
+    addComponent( &mSpawnSeed );
     
     // this section have all buttons with the same width
     mTutorialButton.setSize( 175, 60 );
@@ -156,9 +168,11 @@ ExistingAccountPage::ExistingAccountPage()
     
     mEmailField.setLabelTop( true );
     mKeyField.setLabelTop( true );
+    mSpawnSeed.setLabelTop( true );
     
     mLoginButton.addActionListener( this );
     mFriendsButton.addActionListener( this );
+    mSeedButton.addActionListener( this );
     mGenesButton.addActionListener( this );
     mFamilyTreesButton.addActionListener( this );
     mTechTreeButton.addActionListener( this );
@@ -244,6 +258,18 @@ void ExistingAccountPage::makeActive( char inFresh ) {
         // tutorial forced anyway
         mTutorialButton.setVisible( false );
         }
+
+    useSpawnSeed = false;
+
+    char *seed = 
+        SettingsManager::getSettingContents( "spawnSeed", "" );
+
+    mSpawnSeed.setList( seed );
+        
+    delete [] seed;
+
+
+
     
 
     mFramesCounted = 0;
@@ -255,6 +281,7 @@ void ExistingAccountPage::makeActive( char inFresh ) {
     //mFPSMeasureDone = false;
     
     mLoginButton.setVisible( false );
+    mSeedButton.setVisible( false );
     mFriendsButton.setVisible( false );
     mGenesButton.setVisible( false );
     
@@ -271,6 +298,7 @@ void ExistingAccountPage::makeActive( char inFresh ) {
         // skipping measure OR we are returning to this page later
         // and not measuring again
         mLoginButton.setVisible( true );
+        mSeedButton.setVisible( true );
         mFriendsButton.setVisible( true );
         triggerLifeTokenUpdate();
         triggerFitnessScoreUpdate();
@@ -288,6 +316,9 @@ void ExistingAccountPage::makeActive( char inFresh ) {
 
     char *emailText = mEmailField.getText();
     char *keyText = mKeyField.getText();
+
+    mSpawnSeed.setContentsHidden( true );
+
 
     // don't hide field contents unless there is something to hide
     if( ! pastSuccess || 
@@ -387,12 +418,33 @@ void ExistingAccountPage::step() {
     mPasteButton.setVisible( isClipboardSupported() &&
                              mKeyField.isFocused() );
     //mAtSignButton.setVisible( mEmailField.isFocused() );
+    
+    int blockClicks;
+    if ( mSpawnSeed.isFocused() ) { blockClicks = true; }
+    
+    mLoginButton.setIgnoreEvents( blockClicks );
+    mSeedButton.setIgnoreEvents( blockClicks );
+    mFriendsButton.setIgnoreEvents( blockClicks );
+    
+    mEmailField.setIgnoreEvents( blockClicks );
+    mKeyField.setIgnoreEvents( blockClicks );
     }
 
 
 
 void ExistingAccountPage::actionPerformed( GUIComponent *inTarget ) {
+    //saves seed setting on any action performed
+    char *seedList = mSpawnSeed.getAndUpdateList();
+
+    SettingsManager::setSetting( "spawnSeed", seedList );
+    delete [] seedList;
+
     if( inTarget == &mLoginButton ) {
+        processLogin( true, "done" );
+        }
+    else if( inTarget == &mSeedButton ) {
+        useSpawnSeed = true;
+        
         processLogin( true, "done" );
         }
     else if( inTarget == &mTutorialButton ) {
@@ -660,6 +712,7 @@ void ExistingAccountPage::draw( doublePair inViewCenter,
 
             if( !fpsFailed ) {
                 mLoginButton.setVisible( true );
+                mSeedButton.setVisible( true );
                 
                 int pastSuccess = 
                     SettingsManager::getIntSetting( "loginSuccess", 0 );
