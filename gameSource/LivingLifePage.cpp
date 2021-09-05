@@ -10394,7 +10394,7 @@ void LivingLifePage::draw( doublePair inViewCenter,
 		// hetuw mod
 		int hetuwFoodStoreWithHolding = ourLiveObject->foodStore;
 		if( ourLiveObject->holdingID > 0 && getObject( ourLiveObject->holdingID )->foodValue > 0 )
-			hetuwFoodStoreWithHolding += getObject( ourLiveObject->holdingID )->foodValue + 2;
+			hetuwFoodStoreWithHolding += getObject( ourLiveObject->holdingID )->foodValue;
 		
         for( int i=0; i<ourLiveObject->foodCapacity; i++ ) {
             doublePair pos = { lastScreenViewCenter.x - 590, 
