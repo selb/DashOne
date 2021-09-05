@@ -2638,6 +2638,14 @@ static double apocalypseDisplaySeconds = 6;
 static double remapPeakSeconds = 60;
 static double remapDelaySeconds = 30;
 
+int LivingLifePage::getObjId( int tileX, int tileY ) {
+	int mapX = tileX - mMapOffsetX + mMapD / 2;
+	int mapY = tileY - mMapOffsetY + mMapD / 2;
+	int i = mapY * mMapD + mapX;
+	if (i < 0 || i >= mMapD*mMapD) return -1;
+	return mMap[i];
+}
+
 
 void LivingLifePage::hetuwSetNextActionMessage(const char* msg, int x, int y) {
 	if( nextActionMessageToSend != NULL ) {
@@ -6189,10 +6197,19 @@ char *getSpokenNumber( unsigned int inNumber, int inSigFigs = 2 ) {
         thousands = 0;
         }
     
-	
-	// For tripping color effect
-	isTrippingEffectOn = isTripping();
-	
+    char *billionsString;
+    if( billions > 0 ) {
+        const char *padding = "";
+        if( millions > 0 ) {
+            padding = " ";
+            }
+        billionsString = getSmallNumberString( billions, 
+                                               translate( "billion" ),
+                                               padding );
+        }
+    else {
+        billionsString = stringDuplicate( "" );
+        }
 
     char *millionsString;
     if( millions > 0 ) {
@@ -6811,6 +6828,10 @@ void LivingLifePage::draw( doublePair inViewCenter,
     int xEndFloor = gridCenterX + (int)(ceil(6*HetuwMod::zoomScale)); // default: 6 / hetuw mod
 
     
+	
+	// For tripping color effect
+	isTrippingEffectOn = isTripping();
+	
 
 
     int numCells = mMapD * mMapD;
@@ -6994,6 +7015,21 @@ void LivingLifePage::draw( doublePair inViewCenter,
                     
                     if( isInBounds( x + 1, y + 1, mMapD ) ) {    
                         diagB = mMapBiomes[ mapI + mMapD + 1 ];
+                        }
+                    
+                    char floorAt = isCoveredByFloor( mapI );
+                    char floorR = false;
+                    char floorB = false;
+                    char floorBR = false;
+                    
+                    if( isInBounds( x +1, y, mMapD ) ) {    
+                        floorR = isCoveredByFloor( mapI + 1 );
+                        }
+                    if( isInBounds( x, y - 1, mMapD ) ) {    
+                        floorB = isCoveredByFloor( mapI - mMapD );
+                        }
+                    if( isInBounds( x +1, y - 1, mMapD ) ) {    
+                        floorBR = isCoveredByFloor( mapI - mMapD + 1 );
                         }
                     
 					if( isTrippingEffectOn ) setTrippingColor( pos.x, pos.y );

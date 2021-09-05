@@ -2556,11 +2556,15 @@ HoldingPos drawObjectAnim( int inObjectID, int inDrawBehindSlots,
                 }
             }
 			
-        if( i == eyesIndex && drawWithEmot != NULL &&
-            drawWithEmot->eyeEmot != 0 &&
-			strstr( getObject( drawWithEmot->eyeEmot )->description, "Eyes" )
-			) {
-            skipSprite = true;
+        if( i == eyesIndex && drawWithEmots.size() > 0 ) {
+			for( int e=0; e<drawWithEmots.size(); e++ ) {
+				if( drawWithEmots.getElementDirect(e)->eyeEmot != 0 &&
+				strstr( getObject( drawWithEmots.getElementDirect(e)->eyeEmot )->description, "Eyes" )
+				) {
+					skipSprite = true;
+					break;
+					}
+				}
             }
         
 

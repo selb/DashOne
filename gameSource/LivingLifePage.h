@@ -545,6 +545,8 @@ class LivingLifePage : public GamePage, public ActionListener {
             return mRequiredVersion;
             }
 			
+		int getObjId( int mapX, int mapY );
+			
 		doublePair minitechGetLastScreenViewCenter();
 		char *minitechGetDisplayObjectDescription(int objId);
 		bool minitechSayFieldIsFocused() { return mSayField.isFocused(); }
