@@ -1143,9 +1143,16 @@ void LivingLifePage::sendToServerSocket( char *inMessage ) {
             if( mDeathReason != NULL ) {
                 // delete [] mDeathReason; // hetuw mod
                 }
-            mDeathReason = stringDuplicate( translate( "reasonDisconnected" ) );
+				
+			if( mDeathReason != NULL ) {
+				if( strstr( mDeathReason, "#####" ) != NULL )
+				handleOurDeath();
+				}
+			else {
+				mDeathReason = stringDuplicate( translate( "reasonDisconnected" ) );
             
-            handleOurDeath( true );
+				handleOurDeath( true );
+				}
             }
         else {
             setWaiting( false );
