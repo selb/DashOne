@@ -24940,6 +24940,7 @@ void LivingLifePage::pointerDown( float inX, float inY ) {
                          ) 
                        )
                      && ourLiveObject->holdingID == 0 &&
+                     destNumContained > 0 &&
                      getNumContainerSlots( destID ) > 0 ) {
                 
                 // for permanent container objects that have no bare-hand
