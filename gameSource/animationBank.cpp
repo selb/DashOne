@@ -73,8 +73,13 @@ static int mouthShapeFrame = 0;
 static char outputMouthFrames = false;
 static char mouthFrameOutputStarted = false;
 
-extern bool isTrippingEffectOn;
-extern void setTrippingColor( double x, double y );
+// Used in hue shifting objects, animaionts and ground sprites
+// when the character is tripping
+static bool isTrippingEffectOn;
+
+void setAnimationBankTrippingEffect( bool isTripping ) {
+    isTrippingEffectOn = isTripping;
+    }
 
 static char shouldFileBeCached( char *inFileName ) {
     if( strstr( inFileName, ".txt" ) != NULL ) {
