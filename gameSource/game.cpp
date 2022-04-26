@@ -192,6 +192,8 @@ double visibleViewWidth = viewWidth;
 
 
 
+
+
 // fraction of viewWidth visible vertically (aspect ratio)
 double viewHeightFraction;
 

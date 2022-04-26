@@ -96,7 +96,6 @@ int getMetaTriggerObject( int inTriggerIndex ) {
     }
 
 
-
 typedef struct ToolSetRecord {
         // can be null for a single-tool set
         char *setTag;
@@ -235,6 +234,62 @@ static void rebuildRaceList() {
 
 
 static JenkinsRandomSource randSource;
+
+
+// Used in hue shifting objects, animaionts and ground sprites
+// when the character is tripping
+static bool isTrippingEffectOn;
+
+void setObjectBankTrippingEffect( bool isTripping ) {
+    isTrippingEffectOn = isTripping;
+    }
+
+void setTrippingColor( double x, double y ) {
+	
+	// Nothing fancy, just wanna map the screen x, y into [0, 1]
+	// So hue change is continuous across the screen
+	double factor = (int)(abs(x + 2 * y) / 3 / 128) % 10;
+	factor /= 10;
+	
+	double curTime = Time::getCurrentTime();
+	
+	// Time between each color change
+	int period = 2; 
+	
+	int t1 = (int)curTime;
+	int t_progress = (int)t1 % period;
+	if( t_progress != 0 ) t1 -= t_progress;
+	int t2 = t1 + period;
+	
+	randSource.reseed( t1 );
+	double r1 = randSource.getRandomBoundedDouble( 0, 1 );
+	double g1 = randSource.getRandomBoundedDouble( 0, 1 );
+	double b1 = randSource.getRandomBoundedDouble( 0, 1 );
+	r1 = (1 + factor) * (1 + r1);
+	g1 = (1 + factor) * (1 + g1);
+	b1 = (1 + factor) * (1 + b1);
+	r1 = r1 - (int)r1;
+	g1 = g1 - (int)g1;
+	b1 = b1 - (int)b1;
+	
+	randSource.reseed( t2 );
+	double r2 = randSource.getRandomBoundedDouble( 0, 1 );
+	double g2 = randSource.getRandomBoundedDouble( 0, 1 );
+	double b2 = randSource.getRandomBoundedDouble( 0, 1 );
+	r2 = (1 + factor) * (1 + r2);
+	g2 = (1 + factor) * (1 + g2);
+	b2 = (1 + factor) * (1 + b2);
+	r2 = r2 - (int)r2;
+	g2 = g2 - (int)g2;
+	b2 = b2 - (int)b2;
+
+	// Colors fade from one period to the next
+	double r = (r2 - r1) * (curTime - t1) / period + r1;
+	double g = (g2 - g1) * (curTime - t1) / period + g1;
+	double b = (b2 - b1) * (curTime - t1) / period + b1;
+	setDrawColor( r, g, b, 1 );
+	
+	}
 
 
 static ClothingSet emptyClothing = { NULL, NULL, NULL, NULL, NULL, NULL };
@@ -1415,6 +1470,20 @@ float initObjectBankStep() {
                             &( flagRead ) );
                     
                     r->slotsLocked = flagRead;
+                            
+                    next++;
+                    }
+                    
+                r->slotsNoSwap = 0;
+                if( strstr( lines[next], 
+                            "slotsNoSwap=" ) != NULL ) {
+                    // flag present
+                    
+                    int flagRead = 0;                            
+                    sscanf( lines[next], "slotsNoSwap=%d", 
+                            &( flagRead ) );
+                    
+                    r->slotsNoSwap = flagRead;
                             
                     next++;
                     }
@@ -3137,6 +3206,7 @@ int reAddObject( ObjectRecord *inObject,
                         inObject->slotParent,
                         inObject->slotTimeStretch,
                         inObject->slotsLocked,
+                        inObject->slotsNoSwap,
                         inObject->numSprites, 
                         inObject->sprites, 
                         inObject->spritePos,
@@ -3420,6 +3490,7 @@ int addObject( const char *inDescription,
                int *inSlotParent,
                float inSlotTimeStretch,
                char inSlotsLocked,
+               char inSlotsNoSwap,
                int inNumSprites, int *inSprites, 
                doublePair *inSpritePos,
                double *inSpriteRot,
@@ -3491,8 +3562,7 @@ int addObject( const char *inDescription,
 
     int nextObjectNumber = 1;
     
-    if( ! inNoWriteToFile &&
-        objectsDir.exists() && objectsDir.isDirectory() ) {
+    if( objectsDir.exists() && objectsDir.isDirectory() ) {
                 
         File *nextNumberFile = 
             objectsDir.getChildFile( "nextObjectNumber.txt" );
@@ -3633,6 +3703,7 @@ int addObject( const char *inDescription,
                                       inNumSlots, inSlotTimeStretch ) );
         lines.push_back( autoSprintf( "slotSize=%f", inSlotSize ) );
         lines.push_back( autoSprintf( "slotsLocked=%d", (int)inSlotsLocked ) );
+        lines.push_back( autoSprintf( "slotsNoSwap=%d", (int)inSlotsNoSwap ) );
 
         for( int i=0; i<inNumSlots; i++ ) {
             lines.push_back( autoSprintf( "slotPos=%f,%f,vert=%d,parent=%d", 
@@ -3942,6 +4013,7 @@ int addObject( const char *inDescription,
     
     r->slotTimeStretch = inSlotTimeStretch;
     r->slotsLocked = inSlotsLocked;
+    r->slotsNoSwap = inSlotsNoSwap;
 
     r->numSprites = inNumSprites;
     
@@ -4242,7 +4314,7 @@ HoldingPos drawObject( ObjectRecord *inObject, int inDrawBehindSlots,
         inFlipH = false;
         }
 
-	if (HetuwMod::objectDrawScale) inScale = HetuwMod::objectDrawScale[inObject->id];
+	if (HetuwMod::objectDrawScale && inScale == 1.0) inScale = HetuwMod::objectDrawScale[inObject->id]; //minitech
 
     HoldingPos returnHoldingPos = { false, {0, 0}, 0 };
     
@@ -4574,6 +4646,10 @@ HoldingPos drawObject( ObjectRecord *inObject, int inDrawBehindSlots,
             if( additive ) {
                 toggleAdditiveBlend( true );
                 }
+				
+			if( !multiplicative ) {
+				if( isTrippingEffectOn ) setTrippingColor( pos.x, pos.y );
+				}
 
             SpriteHandle sh = getSprite( inObject->sprites[i] );
             if( sh != NULL ) {
@@ -6014,6 +6090,24 @@ void getAllLegIndices( ObjectRecord *inObject,
         }
     }
 
+void getAllNudeIndices( ObjectRecord *inObject,
+                        double inAge, SimpleVector<int> *outList ) {
+
+    // Nude Sprites range [592, 600]
+    int nudeLo = 592;
+    int nudeUp = 600;
+
+    for( int i = 0; i < inObject->numSprites; i++ ) {
+        // Object Sprite ID
+        int obSid = inObject->sprites[i];
+
+        if( obSid >= nudeLo && obSid <= nudeUp ) {
+            // Sprite is a nude part
+            outList->push_back(i);
+        }
+    }
+}
+
 
 
 
@@ -6199,6 +6293,11 @@ doublePair getObjectCenterOffset( ObjectRecord *inObject ) {
             // don't consider parts visible only when worn
             continue;
             }
+            
+		if( inObject->spriteColor[i].r < 1.0 && inObject->spriteColor[i].r > 0.998 ) {
+			// special flag to skip sprite when calculating position to draw object
+			continue;
+		}
         
 
         int w = sprite->visibleW;
@@ -6259,6 +6358,11 @@ doublePair getObjectBottomCenterOffset( ObjectRecord *inObject ) {
 
 
     // find center of lowessprite
+	
+	//2HOL drawing tweak: instead of finding sprite with lowest center
+	//we look for sprite with lowest bottom 
+	//this way we make sure that no sprite of an object is drawn 
+	//lower than the bottom edge of a slot
 
     SpriteRecord *lowestRecord = NULL;
     
@@ -6277,18 +6381,48 @@ doublePair getObjectBottomCenterOffset( ObjectRecord *inObject ) {
             // don't consider parts visible only when worn
             continue;
             }
-        
 
-        double y = inObject->spritePos[i].y;
+        if( inObject->spriteInvisibleWhenContained[i] == 1 ) {
+            // don't consider parts visible only when not contained
+            continue;
+            }
+			
+		if( inObject->spriteColor[i].r < 1.0 && inObject->spriteColor[i].r > 0.998 ) {
+			// special flag to skip sprite when calculating position to draw object
+			continue;
+		}
 
+        int h = sprite->visibleH;
+		
+		doublePair dimensions = { sprite->visibleW, sprite->visibleH };
+		
+		dimensions = rotate( dimensions, 
+							   2 * M_PI * inObject->spriteRot[i] );
+		
+		doublePair centerOffset = { (double)sprite->centerXOffset,
+									(double)sprite->centerYOffset };
+                                    
+		doublePair centerAnchorOffset = { (double)sprite->centerAnchorXOffset,
+                                          (double)sprite->centerAnchorYOffset };
+			
+		centerOffset = rotate( centerOffset, 
+							   2 * M_PI * inObject->spriteRot[i] );
+                               
+		centerAnchorOffset = rotate( centerAnchorOffset, 
+							   2 * M_PI * inObject->spriteRot[i] );
+
+		doublePair spriteCenter = add( inObject->spritePos[i], 
+									   centerOffset );
+		
+		double y = spriteCenter.y - abs(dimensions.y) / 2 + centerAnchorOffset.y;
 
         if( lowestRecord == NULL ||
-            // wider than what we've seen so far
+            // lowest point of sprite is lower than what we've seen so far
             y < lowestYPos ) {
 
             lowestRecord = sprite;
             lowestIndex = i;
-            lowestYPos = inObject->spritePos[i].y;
+            lowestYPos = y;
             }
         }
     
@@ -6297,25 +6431,12 @@ doublePair getObjectBottomCenterOffset( ObjectRecord *inObject ) {
         doublePair result = { 0, 0 };
         return result;
         }
-    
-    
-        
-    doublePair centerOffset = { (double)lowestRecord->centerXOffset,
-                                (double)lowestRecord->centerYOffset };
-        
-    centerOffset = rotate( centerOffset, 
-                           2 * M_PI * inObject->spriteRot[lowestIndex] );
-
-    doublePair spriteCenter = add( inObject->spritePos[lowestIndex], 
-                                   centerOffset );
 
     doublePair wideCenter = getObjectCenterOffset( inObject );
-    
-    
-    // adjust y based on lowest sprite
-    // but keep center from widest sprite
-    // (in case object has "feet" that are not centered)
-    wideCenter.y = spriteCenter.y;
+	
+	//Adjust y so that the lowest point of an object sits
+	//on the bottom edge of a slot
+	wideCenter.y = lowestYPos + 8.0; //slot has height of 16.0
 
     return wideCenter;    
     }

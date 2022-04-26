@@ -64,6 +64,7 @@ typedef struct LiveObject {
         char sick;
         
         char *name;
+        char *tag;
 
         char *relationName;
         
@@ -544,6 +545,12 @@ class LivingLifePage : public GamePage, public ActionListener {
         int getRequiredVersion() {
             return mRequiredVersion;
             }
+			
+		int getObjId( int mapX, int mapY );
+			
+		doublePair minitechGetLastScreenViewCenter();
+		char *minitechGetDisplayObjectDescription(int objId);
+		bool minitechSayFieldIsFocused() { return mSayField.isFocused(); }
 
 		void hetuwSetPanelOffsets();
 		bool hetuwSayFieldIsFocused() { return mSayField.isFocused(); }
@@ -679,10 +686,10 @@ class LivingLifePage : public GamePage, public ActionListener {
         SimpleVector<int> mMapExtraMovingObjectsDestObjectIDs;
         SimpleVector<ExtraMapObject> mMapExtraMovingObjects;
 
-        
+        public: // minitech
         int mMapOffsetX;
         int mMapOffsetY;
-
+		protected: // minitech
 
         char mEKeyEnabled;
         char mEKeyDown;
@@ -999,6 +1006,10 @@ class LivingLifePage : public GamePage, public ActionListener {
         LiveObject *getOurLiveObject();
         LiveObject *getLiveObject( int inID );
         protected: // hetuw mod
+		
+		bool tileBlocked( int x, int y );
+		void drunkWalk( GridPos *path, int pathLen, bool actionMove );
+		bool isTripping();
 
         void clearLiveObjects();
         

@@ -244,6 +244,9 @@ typedef struct ObjectRecord {
         // true if nothing can be added/removed from container
         char slotsLocked;
         
+        // true if swap is disabled for this container
+        char slotsNoSwap;
+        
 
         int numSprites;
         
@@ -546,6 +549,16 @@ float initObjectBankStep();
 void initObjectBankFinish();
 
 
+
+// Used in hue shifting objects, animaionts and ground sprites
+// when the character is tripping
+// to be called in livingLifePage
+void setObjectBankTrippingEffect( bool isTripping );
+
+void setTrippingColor( double x, double y );
+
+
+
 // can only be called after bank init is complete
 int getMaxObjectID();
 
@@ -620,6 +633,7 @@ int addObject( const char *inDescription,
                int *inSlotParent,
                float inSlotTimeStretch,
                char inSlotsLocked,
+               char inSlotsNoSwap,
                int inNumSprites, int *inSprites, 
                doublePair *inSpritePos,
                double *inSpriteRot,
@@ -849,6 +863,9 @@ int getBackArmTopIndex( ObjectRecord *inObject, double inAge );
 
 
 void getAllLegIndices( ObjectRecord *inObject, double inAge, 
+                       SimpleVector<int> *outList );
+
+void getAllNudeIndices( ObjectRecord *inObject, double inAge,
                        SimpleVector<int> *outList );
 
 

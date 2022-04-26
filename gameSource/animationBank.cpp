@@ -8,6 +8,7 @@
 #include "math.h"
 
 #include "minorGems/util/SimpleVector.h"
+#include "minorGems/util/SettingsManager.h"
 #include "minorGems/io/file/File.h"
 
 #include "minorGems/game/gameGraphics.h"
@@ -29,6 +30,7 @@ static int mapSize;
 // sparse, so some entries are NULL
 static AnimationRecord * **idMap;
 
+int NudeToggle;
 
 // maps IDs to arbitrary number of extra animation records 
 // non-sparse
@@ -71,7 +73,13 @@ static int mouthShapeFrame = 0;
 static char outputMouthFrames = false;
 static char mouthFrameOutputStarted = false;
 
+// Used in hue shifting objects, animaionts and ground sprites
+// when the character is tripping
+static bool isTrippingEffectOn;
 
+void setAnimationBankTrippingEffect( bool isTripping ) {
+    isTrippingEffectOn = isTripping;
+    }
 
 static char shouldFileBeCached( char *inFileName ) {
     if( strstr( inFileName, ".txt" ) != NULL ) {
@@ -162,6 +170,8 @@ int initAnimationBankStart( char *outRebuildingCache ) {
         }
     
 
+    NudeToggle =
+        SettingsManager::getIntSetting( "nudeEnabled", 1 );
 
     maxID = 0;
 
@@ -1900,6 +1910,9 @@ HoldingPos drawObjectAnim( int inObjectID, int inDrawBehindSlots,
     SimpleVector <int> legIndices;
     getAllLegIndices( obj, inAge, &legIndices );
 
+    SimpleVector <int> nudeIndices;
+    getAllNudeIndices( obj, inAge, &nudeIndices );
+
 
     // worn clothing never goes to ground animation
     // switches between moving, when the wearer is moving, and held,
@@ -2514,6 +2527,13 @@ HoldingPos drawObjectAnim( int inObjectID, int inDrawBehindSlots,
 
         char skipSprite = false;
         
+        if( obj->person ) {
+            if( nudeIndices.getElementIndex(i) != -1 ) {
+                if( !NudeToggle ) {
+                    skipSprite = true;
+                }
+            }
+        }
 
         if( !inHeldNotInPlaceYet && 
             inHideClosestArm == 1 && 
@@ -2539,6 +2559,17 @@ HoldingPos drawObjectAnim( int inObjectID, int inDrawBehindSlots,
                     break;
                     }
                 }
+            }
+			
+        if( i == eyesIndex && drawWithEmots.size() > 0 ) {
+			for( int e=0; e<drawWithEmots.size(); e++ ) {
+				if( drawWithEmots.getElementDirect(e)->eyeEmot != 0 &&
+				strstr( getObject( drawWithEmots.getElementDirect(e)->eyeEmot )->description, "Eyes" )
+				) {
+					skipSprite = true;
+					break;
+					}
+				}
             }
         
 
@@ -2989,7 +3020,11 @@ HoldingPos drawObjectAnim( int inObjectID, int inDrawBehindSlots,
                 }
             
             int spriteID = obj->sprites[i];
-            
+			
+			if( !multiplicative && !workingSpriteFade[i] == 0 ) {
+				if( isTrippingEffectOn ) setTrippingColor( pos.x, pos.y );
+				}
+			
             if( drawMouthShapes && spriteID == mouthAnchorID &&
                 mouthShapeFrame < numMouthShapeFrames ) {
                 drawSprite( mouthShapeFrameList[ mouthShapeFrame ], 

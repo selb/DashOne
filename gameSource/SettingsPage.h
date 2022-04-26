@@ -5,6 +5,7 @@
 #include "RadioButtonSet.h"
 #include "ValueSlider.h"
 #include "SoundUsage.h"
+#include "DropdownList.h"
 
 
 #include "minorGems/ui/event/ActionListener.h"
@@ -35,12 +36,14 @@ class SettingsPage : public GamePage, public ActionListener {
         
         int mOldFullscreenSetting;
         int mOldBorderlessSetting;
+        int mEnableNudeSetting;
         
         SoundUsage mTestSound;
 
         double mMusicStartTime;
 
 
+        TextButton mInfoSeeds;
         TextButton mBackButton;
         TextButton mEditAccountButton;
         TextButton mRestartButton;
@@ -54,17 +57,12 @@ class SettingsPage : public GamePage, public ActionListener {
         ValueSlider mSoundEffectsLoudnessSlider;
 
 
-        CheckboxButton mUseCustomServerBox;
-        
-        TextField mCustomServerAddressField;
-        TextField mCustomServerPortField;
-
-        TextButton mCopyButton;
-        TextButton mPasteButton;
-
+        DropdownList mSpawnSeed;
 
         RadioButtonSet *mCursorModeSet;
         
         ValueSlider mCursorScaleSlider;
+        
+        CheckboxButton mEnableNudeBox;
 
     };

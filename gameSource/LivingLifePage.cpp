@@ -49,6 +49,7 @@
 #include "minorGems/crypto/hashes/sha1.h"
 
 #include <stdlib.h>//#include <math.h>
+#include <string>
 
 
 #define OHOL_NON_EDITOR 1
@@ -57,6 +58,7 @@
 #include "hetuwmod.h"
 #include "phex.h"
 #include <string>
+#include "minitech.h"
 
 static ObjectPickable objectPickable;
 
@@ -143,6 +145,7 @@ static float pencilErasedFontExtraFade = 0.75;
 
 extern doublePair lastScreenViewCenter;
 doublePair LivingLifePage::hetuwGetLastScreenViewCenter() { return lastScreenViewCenter; }
+doublePair LivingLifePage::minitechGetLastScreenViewCenter() { return lastScreenViewCenter; }
 
 static char shouldMoveCamera = true;
 
@@ -222,11 +225,13 @@ static char *photoSig = NULL;
 void LivingLifePage::hetuwSetTakingPhoto(bool b) { takingPhoto = b; }
 
 // no moving for first 20 seconds of life
-static double noMoveAge = 0.20;
+static double noMoveAge = 0.00; //Changed to 0 since this mechanics isn't in 2HOL yet
 
 
 static double emotDuration = 10;
 
+static int drunkEmotionIndex = -1;
+static int trippingEmotionIndex = -1;
 
 static int historyGraphLength = 100;
 
@@ -386,6 +391,9 @@ static SimpleVector<HomePos> oldHomePosStack;
 
 // used on reconnect to decide whether to delete old home positions
 static int lastPlayerID = -1;
+
+
+static bool isTrippingEffectOn;
 
 
 
@@ -1134,9 +1142,16 @@ void LivingLifePage::sendToServerSocket( char *inMessage ) {
             if( mDeathReason != NULL ) {
                 // delete [] mDeathReason; // hetuw mod
                 }
-            mDeathReason = stringDuplicate( translate( "reasonDisconnected" ) );
+				
+			if( mDeathReason != NULL ) {
+				if( strstr( mDeathReason, "#####" ) != NULL )
+				handleOurDeath();
+				}
+			else {
+				mDeathReason = stringDuplicate( translate( "reasonDisconnected" ) );
             
-            handleOurDeath( true );
+				handleOurDeath( true );
+				}
             }
         else {
             setWaiting( false );
@@ -1264,9 +1279,9 @@ static double computeCurrentAge( LiveObject *inObj ) {
                 // baby cries for 5 seconds each time they speak
             
                 // update age using clock
-                return inObj->tempAgeOverride + 
+                return computeDisplayAge( inObj->tempAgeOverride +
                     inObj->ageRate * 
-                    ( curTime - inObj->tempAgeOverrideSetTime );
+                    ( curTime - inObj->tempAgeOverrideSetTime ) );
                 }
             else {
                 // temp override over
@@ -1274,17 +1289,19 @@ static double computeCurrentAge( LiveObject *inObj ) {
                 }
             }
         
-        return computeCurrentAgeNoOverride( inObj );
+        // update age using clock
+        return computeDisplayAge( inObj->age +
+            inObj->ageRate * ( game_getCurrentTime() - inObj->lastAgeSetTime ) );
         }
     
     }
 
 double LivingLifePage::hetuwGetAge( LiveObject *inObj ) {
-	return computeCurrentAge( inObj );
+	return computeServerAge( computeCurrentAge( inObj ) );
 }
 
 void LivingLifePage::hetuwGetStringAge( char* str, LiveObject *inObj ) {
-	int age = (int)(computeCurrentAge(inObj)*10);
+	int age = (int)(computeServerAge( computeCurrentAge(inObj) )*10);
 	int ageDecimal = age - int(age*0.1)*10;
 	age = (int)((age-ageDecimal)*0.1);
 	sprintf(str, "%i.%i", age, ageDecimal);
@@ -1292,7 +1309,7 @@ void LivingLifePage::hetuwGetStringAge( char* str, LiveObject *inObj ) {
 
 int LivingLifePage::hetuwGetTextLengthLimit() {
 	LiveObject *ourLiveObject = getOurLiveObject();
-	double age = computeCurrentAge( ourLiveObject );
+	double age = computeCurrentAgeNoOverride( ourLiveObject );
 	int sayCap = (int)( floor( age ) + 1 );
 	if( ourLiveObject->lineage.size() == 0  && sayCap < 30 ) {
 		// eve has a larger say limit
@@ -1312,6 +1329,14 @@ static char *getDisplayObjectDescription( int inID ) {
     stripDescriptionComment( upper );
     return upper;
     }
+	
+char *LivingLifePage::minitechGetDisplayObjectDescription( int objId ) { 
+    ObjectRecord *o = getObject( objId );
+    if( o == NULL ) {
+		return "";
+    }
+	return getDisplayObjectDescription(objId);
+}
 
 
 
@@ -2619,6 +2644,14 @@ static double apocalypseDisplaySeconds = 6;
 static double remapPeakSeconds = 60;
 static double remapDelaySeconds = 30;
 
+int LivingLifePage::getObjId( int tileX, int tileY ) {
+	int mapX = tileX - mMapOffsetX + mMapD / 2;
+	int mapY = tileY - mMapOffsetY + mMapD / 2;
+	int i = mapY * mMapD + mapX;
+	if (i < 0 || i >= mMapD*mMapD) return -1;
+	return mMap[i];
+}
+
 
 void LivingLifePage::hetuwSetNextActionMessage(const char* msg, int x, int y) {
 	if( nextActionMessageToSend != NULL ) {
@@ -2851,6 +2884,12 @@ LivingLifePage::LivingLifePage()
     mMapGlobalOffset.y = 0;
 
     emotDuration = SettingsManager::getFloatSetting( "emotDuration", 10 );
+	
+    drunkEmotionIndex =
+        SettingsManager::getIntSetting( "drunkEmotionIndex", 2 );
+	
+    trippingEmotionIndex =
+        SettingsManager::getIntSetting( "trippingEmotionIndex", 2 );
           
     hideGuiPanel = SettingsManager::getIntSetting( "hideGameUI", 0 );
 
@@ -3184,6 +3223,14 @@ LivingLifePage::LivingLifePage()
 	// hetuw mod
 	mDeathReason = NULL;
 	HetuwMod::setLivingLifePage(this, &gameObjects, mMapContainedStacks, mMapSubContainedStacks, mMapD, mCurMouseOverID);
+	
+	minitech::setLivingLifePage(
+		this, 
+		&gameObjects, 
+		mMapD, 
+		pathFindingD, 
+		mMapContainedStacks, 
+		mMapSubContainedStacks);
 
     }
 
@@ -3232,6 +3279,10 @@ void LivingLifePage::clearLiveObjects() {
         
         if( nextObject->leadershipNameTag != NULL ) {
             delete [] nextObject->leadershipNameTag;
+            }
+            
+        if( nextObject->tag != NULL ) {
+            delete [] nextObject->tag;
             }
 
         delete nextObject->futureAnimStack;
@@ -3551,6 +3602,96 @@ LiveObject *LivingLifePage::getLiveObject( int inID ) {
         }
     return obj;
     }
+
+
+bool LivingLifePage::tileBlocked( int x, int y ) {
+	int oid = getObjId( x, y );
+	int oid_right = getObjId( x + 1, y );
+	int oid_left = getObjId( x - 1, y );
+	ObjectRecord *o = NULL;
+	ObjectRecord *o_right = NULL;
+	ObjectRecord *o_left = NULL;
+	if( oid > 0 ) o = getObject( oid );
+	if( oid_right > 0 ) o_right = getObject( oid_right );
+	if( oid_left > 0 ) o_left = getObject( oid_left );
+	bool blocked_center = true;
+	bool blocked_from_right = true;
+	bool blocked_from_left = true;
+	if( oid == 0 || ( o != NULL && !o->blocksWalking ) ) blocked_center = false;
+	if( oid_right == 0 || ( o_right != NULL && o_right->leftBlockingRadius == 0 ) ) blocked_from_right = false;
+	if( oid_left == 0 || ( o_left != NULL && o_left->rightBlockingRadius == 0 ) ) blocked_from_left = false;
+	if( blocked_center || blocked_from_right || blocked_from_left ) return true;
+	return false;
+	}
+	
+
+
+void LivingLifePage::drunkWalk( GridPos *path, int pathLen, bool actionMove ) {
+	
+	if( path == NULL ) return;	
+	if( pathLen >= 3 ) {
+		bool changeThis = true;
+		
+		for( int i = 1; i < pathLen - 1; i++ ) {
+			if( changeThis ) {
+				int xDis = path[ i + 1 ].x - path[ i - 1 ].x;
+				int yDis = path[ i + 1 ].y - path[ i - 1 ].y;
+				
+				if( abs(xDis) + abs(yDis) < 4 ) {
+					int newXDis = 2;
+					int newYDis = 2;
+					int signX = 0;
+					int signY = 0;
+					if( xDis != 0 ) signX = xDis / abs(xDis);
+					if( yDis != 0 ) signY = yDis / abs(yDis);
+				
+					if( abs(xDis) == 0 ) newXDis = randSource.getRandomBoundedInt( -1, 1 );
+					if( abs(xDis) == 1 ) newXDis = signX * randSource.getRandomBoundedInt( 0, 1 );
+					if( abs(yDis) == 0 ) newYDis = randSource.getRandomBoundedInt( -1, 1 );
+					if( abs(yDis) == 1 ) newYDis = signY * randSource.getRandomBoundedInt( 0, 1 );
+					
+					int newX = path[ i ].x;
+					int newY = path[ i ].y;
+					if( newXDis != 2 ) newX = path[ i - 1 ].x + newXDis;
+					if( newYDis != 2 ) newY = path[ i - 1 ].y + newYDis;
+					
+					if( !tileBlocked( newX, newY ) ) path[ i ] = { newX, newY };
+					}
+				}
+			changeThis = !changeThis;
+			}
+		}
+	else if( pathLen == 2 && !actionMove ) {
+		
+		int xDis = path[ 1 ].x - path[ 0 ].x;
+		int yDis = path[ 1 ].y - path[ 0 ].y;
+		int newXDis = 2;
+		int newYDis = 2;
+		
+		if( abs(xDis) == 0 ) newXDis = randSource.getRandomBoundedInt( -1, 1 );
+		if( abs(yDis) == 0 ) newYDis = randSource.getRandomBoundedInt( -1, 1 );
+		
+		int newX = path[ 1 ].x;
+		int newY = path[ 1 ].y;
+		if( newXDis != 2 ) newX = path[ 0 ].x + newXDis;
+		if( newYDis != 2 ) newY = path[ 0 ].y + newYDis;
+		
+		if( !tileBlocked( newX, newY ) ) path[ 1 ] = { newX, newY };
+		
+		}
+	
+	}
+	
+
+bool LivingLifePage::isTripping() {
+	LiveObject *ourLiveObject = getOurLiveObject();
+	if( ourLiveObject == NULL ) return false;
+	return 
+		trippingEmotionIndex != -1 &&
+		ourLiveObject->currentEmot != NULL &&
+		strcmp( ourLiveObject->currentEmot->triggerWord, 
+		getEmotion( trippingEmotionIndex )->triggerWord ) == 0;
+	}
 
 
 
@@ -6700,6 +6841,12 @@ void LivingLifePage::draw( doublePair inViewCenter,
     int xEndFloor = gridCenterX + (int)(ceil(6*HetuwMod::zoomScale)); // default: 6 / hetuw mod
 
     
+	
+	// For tripping color effect
+	isTrippingEffectOn = isTripping();
+    setObjectBankTrippingEffect( isTrippingEffectOn );
+	setAnimationBankTrippingEffect( isTrippingEffectOn );
+	
 
 
     int numCells = mMapD * mMapD;
@@ -6842,9 +6989,11 @@ void LivingLifePage::draw( doublePair inViewCenter,
 
                         doublePair sheetPos = mult( add( pos, lastCornerPos ),
                                                     0.5 );
+
+                        if( !isTrippingEffectOn ) // All tiles are drawn to change color independently
+						drawSprite( s->wholeSheet, sheetPos );
                         
-                        drawSprite( s->wholeSheet, sheetPos );
-                        
+						if( !isTrippingEffectOn )
                         // mark all cells under sheet as drawn
                         for( int sY = y; sY > y - s->numTilesHigh; sY-- ) {
                         
@@ -6897,10 +7046,11 @@ void LivingLifePage::draw( doublePair inViewCenter,
                     if( isInBounds( x +1, y - 1, mMapD ) ) {    
                         floorBR = isCoveredByFloor( mapI - mMapD + 1 );
                         }
-
-
-
-                    if( leftB == b &&
+                    
+					if( isTrippingEffectOn ) setTrippingColor( pos.x, pos.y );
+					
+                    if( !isTrippingEffectOn && // All tiles are drawn to change color independently
+					    leftB == b &&
                         aboveB == b &&
                         diagB == b ) {
                         
@@ -8373,6 +8523,7 @@ void LivingLifePage::draw( doublePair inViewCenter,
 
     for( int i=0; i<2; i++ ) {
         
+		if( !minitech::minitechEnabled ) //minitech
         if( ! takingPhoto && mCurrentHintTargetObject[i] > 0 ) {
             // draw pointer to closest hint target object
         
@@ -9658,6 +9809,7 @@ void LivingLifePage::draw( doublePair inViewCenter,
         }
     
     for( int i=0; i<NUM_HINT_SHEETS; i++ ) {
+		if ( !minitech::minitechEnabled ) //minitech
         if( ! equal( mHintPosOffset[i], mHintHideOffset[i] ) 
             &&
             mHintMessage[i] != NULL ) {
@@ -10253,6 +10405,11 @@ void LivingLifePage::draw( doublePair inViewCenter,
 
         setDrawColor( 1, 1, 1, 1 );
         toggleMultiplicativeBlend( true );
+
+		// hetuw mod
+		int hetuwFoodStoreWithHolding = ourLiveObject->foodStore;
+		if( ourLiveObject->holdingID > 0 && getObject( ourLiveObject->holdingID )->foodValue > 0 )
+			hetuwFoodStoreWithHolding += getObject( ourLiveObject->holdingID )->foodValue;
 		
         for( int i=0; i<ourLiveObject->foodCapacity; i++ ) {
             doublePair pos = { lastScreenViewCenter.x - 590, 
@@ -10268,6 +10425,11 @@ void LivingLifePage::draw( doublePair inViewCenter,
                     mHungerBoxFillSprites[ i % NUM_HUNGER_BOX_SPRITES ], 
                     pos );
                 }
+			else if( i < hetuwFoodStoreWithHolding ) { // hetuw mod
+                drawSprite( 
+                    mHungerBoxFillSprites[ i % NUM_HUNGER_BOX_SPRITES ], 
+                    pos, 0.4 );
+				}
             else if( i < ourLiveObject->maxFoodStore ) {
                 drawSprite( 
                     mHungerBoxFillErasedSprites[ i % NUM_HUNGER_BOX_SPRITES ], 
@@ -10504,6 +10666,7 @@ void LivingLifePage::draw( doublePair inViewCenter,
             char *desToDelete = NULL;
             
 
+
             
             if( overTempMeter && ourLiveObject->foodDrainTime > 0 ) {
                 // don't replace old until next mouse over
@@ -10573,7 +10736,8 @@ void LivingLifePage::draw( doublePair inViewCenter,
                     des = (char*)translate( "you" );
                     
                     if( ourLiveObject->leadershipNameTag != NULL ||
-                        ourLiveObject->name != NULL ) {
+                        ourLiveObject->name != NULL ||
+                        ourLiveObject->tag != NULL ) {
                         char *workingName;
                         if( ourLiveObject->name != NULL ) {
                             workingName = 
@@ -10588,13 +10752,31 @@ void LivingLifePage::draw( doublePair inViewCenter,
                         if( ourLiveObject->leadershipNameTag != NULL ) {
                             leaderString = ourLiveObject->leadershipNameTag;
                             }
-                        
-                        
-                        des = autoSprintf( "%s - %s%s", des, 
-                                           leaderString, workingName );
-                        desToDelete = des;
 
-                        delete [] workingName;
+                        if( ourLiveObject->name != NULL || ourLiveObject->tag != NULL ) {
+                            
+                            char* displayName;
+                            if( ourLiveObject->name != NULL && ourLiveObject->tag != NULL ) {
+                                displayName = autoSprintf( "%s %s",
+                                                   ourLiveObject->name, 
+                                                   ourLiveObject->tag );
+                                }
+                            else if( ourLiveObject->name != NULL ) {
+                                displayName = autoSprintf( "%s",
+                                                   ourLiveObject->name );
+                                }
+                            else if( ourLiveObject->tag != NULL ) {
+                                displayName = autoSprintf( "%s",
+                                                   ourLiveObject->tag );
+                                }
+
+                            des = autoSprintf( "%s - %s%s", des, 
+                                               leaderString, displayName );
+                            desToDelete = des;
+
+                            delete [] workingName;
+
+                            }
                         }
                     }
                 }
@@ -10623,13 +10805,27 @@ void LivingLifePage::draw( doublePair inViewCenter,
                         desToDelete = des;
                         }
                     }
-                if( otherObj != NULL && otherObj->name != NULL ) {
-                    des = autoSprintf( "%s - %s",
-                                       otherObj->name, des );
-                    
-                    if( desToDelete != NULL ) {
-                        delete [] desToDelete;
+                if( otherObj != NULL && 
+                    ( otherObj->name != NULL || otherObj->tag != NULL )
+                    ) {
+                        
+                    char* displayName;
+                    if( otherObj->name != NULL && otherObj->tag != NULL ) {
+                        displayName = autoSprintf( "%s %s",
+                                           otherObj->name, 
+                                           otherObj->tag );
                         }
+                    else if( otherObj->name != NULL ) {
+                        displayName = autoSprintf( "%s",
+                                           otherObj->name );
+                        }
+                    else if( otherObj->tag != NULL ) {
+                        displayName = autoSprintf( "%s",
+                                           otherObj->tag );
+                        }
+                        
+                    des = autoSprintf( "%s - %s",
+                                       displayName, des );
                     
                     desToDelete = des;
                     }
@@ -11088,6 +11284,15 @@ void LivingLifePage::draw( doublePair inViewCenter,
         }
 
 	HetuwMod::livingLifeDraw();
+
+	// minitech
+	float worldMouseX, worldMouseY;
+	getLastMouseScreenPos( &lastScreenMouseX, &lastScreenMouseY );
+	screenToWorld( lastScreenMouseX,
+				   lastScreenMouseY,
+				   &worldMouseX,
+				   &worldMouseY );
+	minitech::livingLifeDraw(worldMouseX, worldMouseY);
 
     if( vogMode ) {
         // draw again, so we can see picker
@@ -13907,6 +14112,7 @@ void LivingLifePage::step() {
         sendToServerSocket( (char*)"KA 0 0#" );
         }
     
+	minitech::livingLifeStep();
 	HetuwMod::livingLifeStep();
 
     if( showFPS ) {
@@ -14277,7 +14483,29 @@ void LivingLifePage::step() {
             char *tempEmail;
             
             if( strlen( userEmail ) > 0 ) {
-                tempEmail = stringDuplicate( userEmail );
+                std::string seededEmail = std::string( userEmail );
+
+				// If user doesn't have a seed in their email field
+				if( seededEmail.find('|') == std::string::npos ) {
+					std::string seedList = SettingsManager::getSettingContents( "spawnSeed", "" );
+					std::string seed = "";
+					if( seedList == "" ) {
+						seed = "";
+					} else if( seedList.find('\n') == std::string::npos ) {
+						seed = seedList;
+					} else if( seedList.find('\n') != std::string::npos ) {
+						seed = seedList.substr( 0, seedList.find('\n') );
+					}
+
+					// And if the user has a seed set in settings
+					if( seed != "" ) {
+						// Add seed delim and then seed
+						seededEmail += '|';
+						seededEmail += seed;
+						}
+					}
+
+                tempEmail = stringDuplicate( seededEmail.c_str() );
                 }
             else {
                 // a blank email
@@ -14294,7 +14522,12 @@ void LivingLifePage::step() {
                 }
 
 
-            if( strlen( userEmail ) <= 80 ) {    
+			if( SettingsManager::getIntSetting( "useLegacyLoginFormat", 1 ) ) {
+				clientTag = "";
+				}
+
+
+            if( strlen( tempEmail ) <= 80 ) {    
                 outMessage = autoSprintf( "%s %s %-80s %s %s %d%s#",
                                           loginWord,
                                           clientTag, tempEmail, pwHash, keyHash,
@@ -15524,6 +15757,7 @@ void LivingLifePage::step() {
                                 }
                             }
                         
+                        bool useOnContainedContainmentTrans = false;
 
                         if( strstr( idBuffer, "," ) != NULL ) {
                             int numInts;
@@ -15535,6 +15769,19 @@ void LivingLifePage::step() {
 
                             mMap[mapI] = newID;
                             
+                            // Check for possible contained change as well as container change
+                            // in a containment transition
+                            ObjectRecord *oldObj = getObject( old );
+                            ObjectRecord *newObj = getObject( newID );
+                            
+                            if( oldObj != NULL &&
+                                newObj != NULL &&
+                                old != newID &&
+                                strstr( oldObj->description, "+useOnContained" ) != NULL &&
+                                strstr( newObj->description, "+useOnContained" ) != NULL ) {
+                                useOnContainedContainmentTrans = true;
+                                }
+                            
                             delete [] ints[0];
 
                             SimpleVector<int> oldContained;
@@ -15542,7 +15789,7 @@ void LivingLifePage::step() {
                             // with no changed to container
                             // look for contained change
                             if( speed == 0 &&
-                                old == newID && 
+                                ( old == newID || useOnContainedContainmentTrans ) && 
                                 responsiblePlayerID < 0 ) {
                             
                                 oldContained.push_back_other( 
@@ -15592,7 +15839,7 @@ void LivingLifePage::step() {
                             delete [] ints;
 
                             if( speed == 0 &&
-                                old == newID && 
+                                ( old == newID || useOnContainedContainmentTrans ) && 
                                 responsiblePlayerID < 0
                                 &&
                                 oldContained.size() ==
@@ -15901,6 +16148,10 @@ void LivingLifePage::step() {
                             responsiblePlayerObject = 
                                 getGameObject( responsiblePlayerID );
                             }
+                        if( responsiblePlayerID < -1 ) {
+                            responsiblePlayerObject = 
+                                getGameObject( -responsiblePlayerID );
+                            }
                         
                         if( old > 0 &&
                             newID > 0 &&
@@ -15921,12 +16172,27 @@ void LivingLifePage::step() {
                             }
                         
 
-                        if( old > 0 &&
+                        if( (old > 0 &&
                             old == newID &&
                             mMapContainedStacks[mapI].size() > 
                             oldContainedCount &&
                             responsiblePlayerObject != NULL &&
-                            responsiblePlayerObject->holdingID == 0 ) {
+                            responsiblePlayerObject->holdingID == 0) 
+                            
+                            ||
+                            
+                            // exception case for containment transition
+                            // denoted by responsiblePlayerID being negative of the actual
+                            // newID could have changed in this case
+                            // but we still want the container using sound
+                            (old > 0 &&
+                            mMapContainedStacks[mapI].size() > 
+                            oldContainedCount &&
+                            responsiblePlayerObject != NULL &&
+                            responsiblePlayerID < -1 &&
+                            responsiblePlayerObject->holdingID == 0)
+
+                            ) {
                             
                             // target is changed container and
                             // responsible player's hands now empty
@@ -16124,6 +16390,7 @@ void LivingLifePage::step() {
                             if( newObj->permanent && newObj->blocksWalking ) {
                                 // clear the locally-stored flip for this
                                 // tile
+								if( speed == 0 ) //allow blocking objects that move to flip e.g. beaver
                                 mMapTileFlips[mapI] = false;
                                 }    
                             }
@@ -16177,7 +16444,6 @@ void LivingLifePage::step() {
                             
                             LiveObject *responsiblePlayerObject = NULL;
                             
-                            
                             if( responsiblePlayerID > 0 ) {
                                 responsiblePlayerObject = 
                                     getGameObject( responsiblePlayerID );
@@ -16204,7 +16470,8 @@ void LivingLifePage::step() {
                             
                             
                             if( responsiblePlayerObject == NULL ||
-                                !responsiblePlayerObject->onScreen ) {
+                                !responsiblePlayerObject->onScreen ||
+                                useOnContainedContainmentTrans ) {
                                 
                                 // set it down instantly, no drop animation
                                 // (player's held offset isn't valid)
@@ -16400,6 +16667,8 @@ void LivingLifePage::step() {
                 o.relationName = NULL;
                 o.warPeaceStatus = 0;
                 
+                o.tag = NULL;
+
                 o.curseLevel = 0;
                 o.curseName = NULL;
                 
@@ -17069,6 +17338,7 @@ void LivingLifePage::step() {
                             if( isHintFilterStringInvalid() ) {
                                 mNextHintIndex = 
                                     mHintBookmarks[ mNextHintObjectID ];
+									if (minitech::changeHintObjOnTouch) minitech::changeCurrentHintObjId(mNextHintObjectID);
                                 }
                             }
                         
@@ -18319,6 +18589,35 @@ void LivingLifePage::step() {
                             mDeathReason = stringDuplicate( 
                                 translate( "reasonSID" ) );
                             }
+                        else if( strcmp( reasonString, "suicide" ) == 0 ) {
+                            ObjectRecord *holdingO = NULL;
+                            
+                            if( ourLiveObject->holdingID > 0 ) {
+                                holdingO = getObject( ourLiveObject->holdingID );
+                                }
+							
+                            if( holdingO == NULL ) {
+                                mDeathReason = autoSprintf( 
+                                    "%s%s",
+                                    translate( "reasonKilled" ),
+                                    translate( "you" ) );
+                                }
+                            else {
+
+                                char *stringUpper = stringToUpperCase( 
+                                    holdingO->description );
+
+                                stripDescriptionComment( stringUpper );
+
+
+                                mDeathReason = autoSprintf( 
+                                    "%s%s",
+                                    translate( "reasonKilled" ),
+                                    stringUpper );
+                                
+                                delete [] stringUpper;
+                                }
+                            }
                         else if( strcmp( reasonString, "age" ) == 0 ) {
                             mDeathReason = stringDuplicate( 
                                 translate( "reasonOldAge" ) );
@@ -18615,9 +18914,11 @@ void LivingLifePage::step() {
                 ourID = ourObject->id;
 
 				HetuwMod::initOnServerJoin();
+				minitech::initOnBirth();
                 if( ourID != lastPlayerID ) {
                     homePosStack.deleteAll();
 					HetuwMod::initOnBirth();
+					minitech::initOnBirth();
                     // different ID than last time, delete old home markers
                     oldHomePosStack.deleteAll();
                     }
@@ -20128,15 +20429,48 @@ void LivingLifePage::step() {
                             if( existing->name != NULL ) {
                                 delete [] existing->name;
                                 }
+                                
+                            if( existing->tag != NULL ) {
+                                delete [] existing->tag;
+                                existing->tag = NULL;
+                                }
                             
                             char *firstSpace = strstr( lines[i], " " );
         
                             if( firstSpace != NULL ) {
 
+                                
+                                char *firstPlus = strstr( lines[i], "+" );
+                                
+                                if( firstPlus != NULL ) {
+                                    char *tagStart = &( firstPlus[0] );
+                                    existing->tag = stringDuplicate( tagStart );
+                                    (firstPlus - 1)[0] = '\0';
+                                    }
+
                                 char *nameStart = &( firstSpace[1] );
                                 
-                                existing->name = stringDuplicate( nameStart );
-								HetuwMod::onNameUpdate(existing);
+                                if( firstSpace[1] != '+' ) {
+                                
+                                    existing->name = stringDuplicate( nameStart );
+                                    HetuwMod::onNameUpdate(existing);
+                                    
+                                    }
+                                    
+                                LiveObject *ourLiveObject = getOurLiveObject();
+								if ( id == ourLiveObject->id && 
+									//Little hack here to not have the ding
+									//when we are just reconnected
+									//instead of a real name change
+									ourLiveObject->foodCapacity > 0 && 
+									mTutorialSound != NULL ) {
+									playSound( 
+										mTutorialSound,
+										0.18 * getSoundEffectsLoudness(), 
+										getVectorFromCamera( 
+											ourLiveObject->currentPos.x, 
+											ourLiveObject->currentPos.y ) );
+									}
                                 }
                             
                             break;
@@ -20707,7 +21041,7 @@ void LivingLifePage::step() {
         
 
         // current age
-        double age = computeCurrentAge( ourLiveObject );
+        double age = computeCurrentAgeNoOverride( ourLiveObject );
 
         int sayCap = getSayLimit( age );
 
@@ -22298,11 +22632,12 @@ void LivingLifePage::makeActive( char inFresh ) {
 
 
     int tutorialDone = SettingsManager::getIntSetting( "tutorialDone", 0 );
+    int useLegacyTutorialNumbering = SettingsManager::getIntSetting( "useLegacyTutorialNumbering", 1 );
     
     if( tutorialDone == 0 ) {
         mTutorialNumber = 1;
         }
-    else if( tutorialDone == 1 ) {
+    else if( tutorialDone == 1 && !useLegacyTutorialNumbering ) {
         mTutorialNumber = 2;
         }
     else {
@@ -23418,6 +23753,9 @@ static void freeSavedPath() {
 
 
 void LivingLifePage::pointerDown( float inX, float inY ) {
+	
+	if (minitech::livingLifePageMouseDown( inX, inY )) return;
+	
 	if (!mForceGroundClick && HetuwMod::livingLifePageMouseDown( inX, inY ))
 		return;
 
@@ -23783,12 +24121,24 @@ void LivingLifePage::pointerDown( float inX, float inY ) {
         
         destObjInClickedTile = destID;
 
+        destNumContained = mMapContainedStacks[ mapY * mMapD + mapX ].size();
+        
+        int newActorSlots = 0;
+        TransRecord *barehandTrans = getPTrans( 0, destObjInClickedTile );
+        if( barehandTrans != NULL ) {
+            ObjectRecord *newActor = getObject( barehandTrans->newActor );
+            if( newActor != NULL ) {
+                newActorSlots = newActor->numSlots;
+                }
+            }
+        
         if( destObjInClickedTile > 0 ) {
             destObjInClickedTilePermanent =
-                getObject( destObjInClickedTile )->permanent;
+                getObject( destObjInClickedTile )->permanent &&
+                !(barehandTrans != NULL &&
+                barehandTrans->newTarget == 0 &&
+                newActorSlots >= destNumContained);
             }
-    
-        destNumContained = mMapContainedStacks[ mapY * mMapD + mapX ].size();
         
 
         // if holding something, and this is a set-down action
@@ -23927,6 +24277,7 @@ void LivingLifePage::pointerDown( float inX, float inY ) {
                 mNextHintObjectID = destID;
                 if( isHintFilterStringInvalid() ) {
                     mNextHintIndex = mHintBookmarks[ destID ];
+					if (minitech::changeHintObjOnTouch) minitech::changeCurrentHintObjId(destID);
                     }
                 }
             else if( tr->newActor > 0 && 
@@ -23935,6 +24286,7 @@ void LivingLifePage::pointerDown( float inX, float inY ) {
                 mNextHintObjectID = tr->newActor;
                 if( isHintFilterStringInvalid() ) {
                     mNextHintIndex = mHintBookmarks[ tr->newTarget ];
+					if (minitech::changeHintObjOnTouch) minitech::changeCurrentHintObjId(tr->newActor);
                     }
                 }
             else if( tr->newTarget > 0 ) {
@@ -23942,6 +24294,7 @@ void LivingLifePage::pointerDown( float inX, float inY ) {
                 mNextHintObjectID = tr->newTarget;
                 if( isHintFilterStringInvalid() ) {
                     mNextHintIndex = mHintBookmarks[ tr->newTarget ];
+					if (minitech::changeHintObjOnTouch) minitech::changeCurrentHintObjId(tr->newTarget);
                     }
                 }
             }
@@ -23953,6 +24306,7 @@ void LivingLifePage::pointerDown( float inX, float inY ) {
                 mNextHintObjectID = destID;
                 if( isHintFilterStringInvalid() ) {
                     mNextHintIndex = mHintBookmarks[ destID ];
+					if (minitech::changeHintObjOnTouch) minitech::changeCurrentHintObjId(destID);
                     }
                 }
             }
@@ -24273,7 +24627,7 @@ void LivingLifePage::pointerDown( float inX, float inY ) {
 
     char tryingToPickUpBaby = false;
     
-    double ourAge = computeCurrentAge( ourLiveObject );
+    double ourAge = computeCurrentAgeNoOverride( ourLiveObject );
 
     if( destID == 0 &&
         p.hit &&
@@ -24296,7 +24650,7 @@ void LivingLifePage::pointerDown( float inX, float inY ) {
                 if( distance( targetPos, o->currentPos ) < 1 ) {
                     // clicked on someone
 
-                    if( computeCurrentAge( o ) < 5 ) {
+                    if( computeCurrentAgeNoOverride( o ) < 5 ) {
 
                         // they're a baby
                         
@@ -24311,7 +24665,10 @@ void LivingLifePage::pointerDown( float inX, float inY ) {
     
     // for USE actions that specify a slot number
     int useExtraIParam = -1;
-    
+	
+	// whether this move is short and 
+	// an action is gonna be sent shortly
+    bool actionMove = false;
 
     if( !killMode && 
         destID == 0 && !modClick && !tryingToPickUpBaby && !useOnBabyLater && 
@@ -24613,7 +24970,9 @@ void LivingLifePage::pointerDown( float inX, float inY ) {
         
 
         if( canExecute && ! killMode ) {
-            
+			
+            actionMove = true;
+			
             const char *action = "";
             char *extra = stringDuplicate( "" );
             
@@ -24700,6 +25059,7 @@ void LivingLifePage::pointerDown( float inX, float inY ) {
                          ) 
                        )
                      && ourLiveObject->holdingID == 0 &&
+                     destNumContained > 0 &&
                      getNumContainerSlots( destID ) > 0 ) {
                 
                 // for permanent container objects that have no bare-hand
@@ -24740,6 +25100,10 @@ void LivingLifePage::pointerDown( float inX, float inY ) {
                     }
                 
 
+                // if container doesn't allow swap
+                // forget the the slot index
+                if( getObject( destID )->slotsNoSwap ) p.hitSlotIndex = -1;
+                
                 send = true;
                 delete [] extra;
                 extra = autoSprintf( " %d", p.hitSlotIndex );
@@ -25020,7 +25384,14 @@ void LivingLifePage::pointerDown( float inX, float inY ) {
             freeSavedPath();
             }
             
-
+		if( drunkEmotionIndex != -1 &&
+			ourLiveObject->currentEmot != NULL &&
+			strcmp( ourLiveObject->currentEmot->triggerWord, 
+			getEmotion( drunkEmotionIndex )->triggerWord ) == 0 ) {
+			drunkWalk( (ourLiveObject->pathToDest), ourLiveObject->pathLength, actionMove );
+			ourLiveObject->xd = ourLiveObject->pathToDest[ ourLiveObject->pathLength - 1 ].x;
+			ourLiveObject->yd = ourLiveObject->pathToDest[ ourLiveObject->pathLength - 1 ].y;
+			}
 
         // send move right away
         //Thread::staticSleep( 2000 );
@@ -25332,6 +25703,7 @@ void LivingLifePage::keyDown( unsigned char inASCII ) {
 	if (!vogMode) {
 		if (Phex::hasFocus && mSayField.isFocused()) mSayField.unfocusAll();
 		if (HetuwMod::livingLifeKeyDown(inASCII)) return;
+		if (minitech::livingLifeKeyDown(inASCII)) return;
 	}
 
     switch( inASCII ) {
@@ -25617,9 +25989,7 @@ void LivingLifePage::keyDown( unsigned char inASCII ) {
                                 sendToServerSocket( message );
                                 delete [] message;
                                 }
-                            else if( commandTyped( typedText, "dieCommand" ) 
-                                     &&
-                                     computeCurrentAge( ourLiveObject ) < 2 ) {
+                            else if( commandTyped( typedText, "dieCommand" ) ) {
                                 // die command issued from baby
                                 char *message = 
                                     autoSprintf( "DIE 0 0#" );
@@ -25844,6 +26214,11 @@ void LivingLifePage::keyDown( unsigned char inASCII ) {
                                     // not blank
                                     mHintFilterString = 
                                         stringDuplicate( trimmedFilterString );
+										
+									minitech::inputHintStrToSearch( mHintFilterString );
+                                    }
+								else {
+									minitech::inputHintStrToSearch( "" );
                                     }
                             
                                 delete [] trimmedFilterString;

@@ -42,7 +42,7 @@ extern char loginEditOverride;
 
 ExistingAccountPage::ExistingAccountPage()
         : mEmailField( mainFont, 0, 128, 10, false, 
-                       translate( "email" ),
+                       translate( "username" ),
                        NULL,
                        // forbid only spaces and backslash and 
                        // single/double quotes 
@@ -168,7 +168,7 @@ ExistingAccountPage::ExistingAccountPage()
     
     mAtSignButton.setMouseOverTip( translate( "atSignTip" ) );
 
-    mLoginButton.setMouseOverTip( translate( "saveTip" ) );
+    mLoginButton.setMouseOverTip( translate( "getAccountTip" ) );
     mClearAccountButton.setMouseOverTip( translate( "clearAccountTip" ) );
     
     mFriendsButton.setMouseOverTip( translate( "friendsTip" ) );
@@ -351,6 +351,8 @@ void ExistingAccountPage::makeActive( char inFresh ) {
         mReviewButton.setVisible( true );
         mViewAccountButton.setVisible( false );
         }
+		
+	mReviewButton.setVisible( false );
     }
 
 
@@ -368,7 +370,7 @@ void ExistingAccountPage::step() {
                              mKeyField.isFocused() );
     mPasteEmailButton.setVisible( isClipboardSupported() &&
                                   mEmailField.isFocused() );
-    mAtSignButton.setVisible( mEmailField.isFocused() );
+    // mAtSignButton.setVisible( mEmailField.isFocused() );
     }
 
 

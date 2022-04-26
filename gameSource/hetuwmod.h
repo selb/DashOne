@@ -348,6 +348,8 @@ public:
 	static unsigned char charKey_ShowMap;
 	static unsigned char charKey_MapZoomIn;
 	static unsigned char charKey_MapZoomOut;
+	
+	static int infertileAge;
 
 	static unsigned char charKey_CreateHome;
 	static unsigned char charKey_FixCamera;
