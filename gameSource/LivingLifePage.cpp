@@ -15754,7 +15754,6 @@ void LivingLifePage::step() {
                                 }
                             }
                         
-                        bool useOnContainedContainmentTrans = false;
 
                         if( strstr( idBuffer, "," ) != NULL ) {
                             int numInts;
@@ -15766,19 +15765,6 @@ void LivingLifePage::step() {
 
                             mMap[mapI] = newID;
                             
-                            // Check for possible contained change as well as container change
-                            // in a containment transition
-                            ObjectRecord *oldObj = getObject( old );
-                            ObjectRecord *newObj = getObject( newID );
-                            
-                            if( oldObj != NULL &&
-                                newObj != NULL &&
-                                old != newID &&
-                                strstr( oldObj->description, "+useOnContained" ) != NULL &&
-                                strstr( newObj->description, "+useOnContained" ) != NULL ) {
-                                useOnContainedContainmentTrans = true;
-                                }
-                            
                             delete [] ints[0];
 
                             SimpleVector<int> oldContained;
@@ -15786,7 +15772,7 @@ void LivingLifePage::step() {
                             // with no changed to container
                             // look for contained change
                             if( speed == 0 &&
-                                ( old == newID || useOnContainedContainmentTrans ) && 
+                                old == newID && 
                                 responsiblePlayerID < 0 ) {
                             
                                 oldContained.push_back_other( 
@@ -15836,7 +15822,7 @@ void LivingLifePage::step() {
                             delete [] ints;
 
                             if( speed == 0 &&
-                                ( old == newID || useOnContainedContainmentTrans ) && 
+                                old == newID && 
                                 responsiblePlayerID < 0
                                 &&
                                 oldContained.size() ==
@@ -16441,6 +16427,7 @@ void LivingLifePage::step() {
                             
                             LiveObject *responsiblePlayerObject = NULL;
                             
+                            
                             if( responsiblePlayerID > 0 ) {
                                 responsiblePlayerObject = 
                                     getGameObject( responsiblePlayerID );
@@ -16467,8 +16454,7 @@ void LivingLifePage::step() {
                             
                             
                             if( responsiblePlayerObject == NULL ||
-                                !responsiblePlayerObject->onScreen ||
-                                useOnContainedContainmentTrans ) {
+                                !responsiblePlayerObject->onScreen ) {
                                 
                                 // set it down instantly, no drop animation
                                 // (player's held offset isn't valid)
