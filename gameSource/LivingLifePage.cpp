@@ -3291,10 +3291,6 @@ void LivingLifePage::clearLiveObjects() {
         if( nextObject->leadershipNameTag != NULL ) {
             delete [] nextObject->leadershipNameTag;
             }
-            
-        if( nextObject->tag != NULL ) {
-            delete [] nextObject->tag;
-            }
 
         delete nextObject->futureAnimStack;
         delete nextObject->futureHeldAnimStack;
@@ -10762,26 +10758,9 @@ void LivingLifePage::draw( doublePair inViewCenter,
                             leaderString = ourLiveObject->leadershipNameTag;
                             }
                         
-                    if( ourLiveObject->name != NULL || ourLiveObject->tag != NULL ) {
                         
-                        char* displayName;
-                        if( ourLiveObject->name != NULL && ourLiveObject->tag != NULL ) {
-                            displayName = autoSprintf( "%s %s",
-                                               ourLiveObject->name, 
-                                               ourLiveObject->tag );
-                            }
-                        else if( ourLiveObject->name != NULL ) {
-                            displayName = autoSprintf( "%s",
-                                               ourLiveObject->name );
-                            }
-                        else if( ourLiveObject->tag != NULL ) {
-                            displayName = autoSprintf( "%s",
-                                               ourLiveObject->tag );
-                            }
-                        }
-
                         des = autoSprintf( "%s - %s%s", des, 
-                                           leaderString, displayName );
+                                           leaderString, workingName );
                         desToDelete = des;
 
                         delete [] workingName;
@@ -10813,27 +10792,13 @@ void LivingLifePage::draw( doublePair inViewCenter,
                         desToDelete = des;
                         }
                     }
-                if( otherObj != NULL && 
-                    ( otherObj->name != NULL || otherObj->tag != NULL )
-                    ) {
-                        
-                    char* displayName;
-                    if( otherObj->name != NULL && otherObj->tag != NULL ) {
-                        displayName = autoSprintf( "%s %s",
-                                           otherObj->name, 
-                                           otherObj->tag );
-                        }
-                    else if( otherObj->name != NULL ) {
-                        displayName = autoSprintf( "%s",
-                                           otherObj->name );
-                        }
-                    else if( otherObj->tag != NULL ) {
-                        displayName = autoSprintf( "%s",
-                                           otherObj->tag );
-                        }
-                        
+                if( otherObj != NULL && otherObj->name != NULL ) {
                     des = autoSprintf( "%s - %s",
-                                       displayName, des );
+                                       otherObj->name, des );
+                    
+                    if( desToDelete != NULL ) {
+                        delete [] desToDelete;
+                        }
                     
                     desToDelete = des;
                     }
@@ -16666,8 +16631,6 @@ void LivingLifePage::step() {
                 o.relationName = NULL;
                 o.warPeaceStatus = 0;
                 
-                o.tag = NULL;
-
                 o.curseLevel = 0;
                 o.curseName = NULL;
                 
@@ -20428,48 +20391,15 @@ void LivingLifePage::step() {
                             if( existing->name != NULL ) {
                                 delete [] existing->name;
                                 }
-                                
-                            if( existing->tag != NULL ) {
-                                delete [] existing->tag;
-                                existing->tag = NULL;
-                                }
                             
                             char *firstSpace = strstr( lines[i], " " );
         
                             if( firstSpace != NULL ) {
 
-                                
-                                char *firstPlus = strstr( lines[i], "+" );
-                                
-                                if( firstPlus != NULL ) {
-                                    char *tagStart = &( firstPlus[0] );
-                                    existing->tag = stringDuplicate( tagStart );
-                                    (firstPlus - 1)[0] = '\0';
-                                    }
-
                                 char *nameStart = &( firstSpace[1] );
                                 
-                                if( firstSpace[1] != '+' ) {
-                                
-                                    existing->name = stringDuplicate( nameStart );
-                                    HetuwMod::onNameUpdate(existing);
-                                    
-                                    }
-                                    
-                                LiveObject *ourLiveObject = getOurLiveObject();
-								if ( id == ourLiveObject->id && 
-									//Little hack here to not have the ding
-									//when we are just reconnected
-									//instead of a real name change
-									ourLiveObject->foodCapacity > 0 && 
-									mTutorialSound != NULL ) {
-									playSound( 
-										mTutorialSound,
-										0.18 * getSoundEffectsLoudness(), 
-										getVectorFromCamera( 
-											ourLiveObject->currentPos.x, 
-											ourLiveObject->currentPos.y ) );
-									}
+                                existing->name = stringDuplicate( nameStart );
+								HetuwMod::onNameUpdate(existing);
                                 }
                             
                             break;
