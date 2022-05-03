@@ -10666,7 +10666,6 @@ void LivingLifePage::draw( doublePair inViewCenter,
             char *desToDelete = NULL;
             
 
-
             
             if( overTempMeter && ourLiveObject->foodDrainTime > 0 ) {
                 // don't replace old until next mouse over
@@ -10736,8 +10735,7 @@ void LivingLifePage::draw( doublePair inViewCenter,
                     des = (char*)translate( "you" );
                     
                     if( ourLiveObject->leadershipNameTag != NULL ||
-                        ourLiveObject->name != NULL ||
-                        ourLiveObject->tag != NULL ) {
+                        ourLiveObject->name != NULL ) {
                         char *workingName;
                         if( ourLiveObject->name != NULL ) {
                             workingName = 
@@ -10752,31 +10750,30 @@ void LivingLifePage::draw( doublePair inViewCenter,
                         if( ourLiveObject->leadershipNameTag != NULL ) {
                             leaderString = ourLiveObject->leadershipNameTag;
                             }
-
-                        if( ourLiveObject->name != NULL || ourLiveObject->tag != NULL ) {
-                            
-                            char* displayName;
-                            if( ourLiveObject->name != NULL && ourLiveObject->tag != NULL ) {
-                                displayName = autoSprintf( "%s %s",
-                                                   ourLiveObject->name, 
-                                                   ourLiveObject->tag );
-                                }
-                            else if( ourLiveObject->name != NULL ) {
-                                displayName = autoSprintf( "%s",
-                                                   ourLiveObject->name );
-                                }
-                            else if( ourLiveObject->tag != NULL ) {
-                                displayName = autoSprintf( "%s",
-                                                   ourLiveObject->tag );
-                                }
-
-                            des = autoSprintf( "%s - %s%s", des, 
-                                               leaderString, displayName );
-                            desToDelete = des;
-
-                            delete [] workingName;
-
+                        
+                    if( ourLiveObject->name != NULL || ourLiveObject->tag != NULL ) {
+                        
+                        char* displayName;
+                        if( ourLiveObject->name != NULL && ourLiveObject->tag != NULL ) {
+                            displayName = autoSprintf( "%s %s",
+                                               ourLiveObject->name, 
+                                               ourLiveObject->tag );
                             }
+                        else if( ourLiveObject->name != NULL ) {
+                            displayName = autoSprintf( "%s",
+                                               ourLiveObject->name );
+                            }
+                        else if( ourLiveObject->tag != NULL ) {
+                            displayName = autoSprintf( "%s",
+                                               ourLiveObject->tag );
+                            }
+                        }
+
+                        des = autoSprintf( "%s - %s%s", des, 
+                                           leaderString, displayName );
+                        desToDelete = des;
+
+                        delete [] workingName;
                         }
                     }
                 }
