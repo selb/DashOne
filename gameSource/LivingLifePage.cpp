@@ -2487,7 +2487,7 @@ static void initOutputMap() {
     delete [] name;
     
     if( !outputMapFileRaw->exists() ) {
-        outputMapFile = fopen( outputMapFileRaw->getFullFileName(), "a" );
+        outputMapFile = fopen( outputMapFileRaw->getFullFileName(), "ab" );
         outputMapFile_w = SettingsManager::getIntSetting( "outputMapMapSizeX", 400 );
         outputMapFile_h = SettingsManager::getIntSetting( "outputMapMapSizeY", 400 );
         outputMapFile_oX = SettingsManager::getIntSetting( "outputMapInitCenterX", 200 );
@@ -2498,7 +2498,7 @@ static void initOutputMap() {
         if( outputMapFile_oY >= outputMapFile_h || outputMapFile_h < 0 ) outputMapFile_oY = int(outputMapFile_h / 2);
         fprintf( outputMapFile, "w=%d\nh=%d\norigin=%d,%d\nfloorPresent\n", outputMapFile_w, outputMapFile_h, outputMapFile_oX, outputMapFile_oY );
     } else {
-        outputMapFile = fopen( outputMapFileRaw->getFullFileName(), "a" );
+        outputMapFile = fopen( outputMapFileRaw->getFullFileName(), "ab" );
         
         char *fileText = outputMapFileRaw->readFileContents();
         
