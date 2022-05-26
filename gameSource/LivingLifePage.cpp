@@ -1329,13 +1329,16 @@ static char *getDisplayObjectDescription( int inID ) {
     stripDescriptionComment( upper );
     return upper;
     }
-	
-char *LivingLifePage::minitechGetDisplayObjectDescription( int objId ) { 
+
+string LivingLifePage::minitechGetDisplayObjectDescription( int objId ) { 
     ObjectRecord *o = getObject( objId );
     if( o == NULL ) {
 		return "";
     }
-	return getDisplayObjectDescription(objId);
+	char *descriptionChars = getDisplayObjectDescription(objId);
+	string description(descriptionChars);
+	delete [] descriptionChars;
+	return description;
 }
 
 static bool possibleUseOnContainedContTrans( int oldId, int newId ) { 
@@ -14681,7 +14684,9 @@ void LivingLifePage::step() {
 
 				// If user doesn't have a seed in their email field
 				if( seededEmail.find('|') == std::string::npos ) {
-					std::string seedList = SettingsManager::getSettingContents( "spawnSeed", "" );
+					char *seedListFromFile = SettingsManager::getSettingContents( "spawnSeed", "" );
+					std::string seedList(seedListFromFile);
+					delete [] seedListFromFile;
 					std::string seed = "";
 					if( seedList == "" ) {
 						seed = "";
@@ -19106,7 +19111,6 @@ void LivingLifePage::step() {
                 if( ourID != lastPlayerID ) {
                     homePosStack.deleteAll();
 					HetuwMod::initOnBirth();
-					minitech::initOnBirth();
                     // different ID than last time, delete old home markers
                     oldHomePosStack.deleteAll();
                     }
