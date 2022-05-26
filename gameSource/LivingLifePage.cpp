@@ -2504,8 +2504,34 @@ std::string getSeededEmail() {
     return seededEmail;
 
 }
+static std::string url_encode(const std::string &value) {
+    ostringstream escaped;
+    escaped.fill('0');
+    escaped << hex;
+
+    for( string::const_iterator i = value.begin(), n = value.end(); i != n; ++i) {
+        string::value_type c = (*i);
+
+        // Keep alphanumeric and other accepted characters intact
+        if( isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') {
+            escaped << c;
+            continue;
+            }
+
+        // Any other characters are percent-encoded
+	if( int((unsigned char) c) < 17 ) {
+            escaped << "0";
+	    }
+        escaped << uppercase;
+        escaped << '%' << int((unsigned char) c);
+        escaped << nouppercase;
+        }
+
+    return escaped.str();
+}
+
 static void initOutputMap() {
-    
+
     File sceneDir( NULL, "scenes" );
     
     if( ! sceneDir.exists() ) {
@@ -2543,7 +2569,8 @@ static void initOutputMap() {
         nextID = outputMapID + 1;
         nextFile->writeToFile( nextID );
     } else {
-        char *name = autoSprintf( "Seed_%s.txt", seed.c_str() );
+        std::string safe_seed = url_encode(seed); // Lots of characters are allowed in seeds that are not allowed in filenames.
+        char *name = autoSprintf( "Seed_%s.txt", safe_seed.c_str() ); // URL Encoded strings could be turned back into the original.
         outputMapFileRaw = sceneDir.getChildFile( name );
         delete [] name;
         }
