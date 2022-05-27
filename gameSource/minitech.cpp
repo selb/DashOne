@@ -117,8 +117,6 @@ void minitech::initOnBirth() {
 	currentHintTrans.shrink_to_fit();
 	changeHintObjOnTouch = true;
 	
-	if (prevListener != NULL) delete(prevListener);
-	if (nextListener != NULL) delete(nextListener);
 	prevListener = NULL;
 	nextListener = NULL;
 	
