@@ -1329,18 +1329,22 @@ static char *getDisplayObjectDescription( int inID ) {
     stripDescriptionComment( upper );
     return upper;
     }
-	
-char *LivingLifePage::minitechGetDisplayObjectDescription( int objId ) { 
+
+string LivingLifePage::minitechGetDisplayObjectDescription( int objId ) { 
     ObjectRecord *o = getObject( objId );
     if( o == NULL ) {
 		return "";
     }
-	return getDisplayObjectDescription(objId);
+	char *descriptionChars = getDisplayObjectDescription(objId);
+	string description(descriptionChars);
+	delete [] descriptionChars;
+	return description;
 }
 
 static bool possibleUseOnContainedContTrans( int oldId, int newId ) { 
     if( oldId == newId ) return false;
-    if( oldId <= 0 || newId <= 0 ) return false;
+    int maxObjectID = getMaxObjectID();
+    if( oldId <= 0 || newId <= 0 || oldId > maxObjectID || newId > maxObjectID ) return false;
     ObjectRecord *oldObj = getObject( oldId );
     ObjectRecord *newObj = getObject( newId );
     if( oldObj == NULL || newObj == NULL ) return false;
@@ -2101,6 +2105,7 @@ static void fixSingleStepPath( LiveObject *inObject ) {
 
 
 char LivingLifePage::isBadBiome( int inMapI ) {
+    if( inMapI < 0 || inMapI >= mMapD * mMapD ) return false;
     int b = mMapBiomes[inMapI];
         
     if( mMapFloors[inMapI] == 0 &&
@@ -2109,6 +2114,7 @@ char LivingLifePage::isBadBiome( int inMapI ) {
         }
     return false;
     }
+
 
 
 
@@ -6837,10 +6843,13 @@ char whiteBorder = true;
 
 char LivingLifePage::isCoveredByFloor( int inTileIndex ) {
     int i = inTileIndex;
+    if( i < 0 || i >= mMapD * mMapD ) return false;
     
     int fID = mMapFloors[ i ];
-
+    int maxObjectID = getMaxObjectID();
+    
     if( fID > 0 && 
+        fID <= maxObjectID &&
         ! getObject( fID )->noCover ) {
         return true;
         }
@@ -14680,7 +14689,9 @@ void LivingLifePage::step() {
 
 				// If user doesn't have a seed in their email field
 				if( seededEmail.find('|') == std::string::npos ) {
-					std::string seedList = SettingsManager::getSettingContents( "spawnSeed", "" );
+					char *seedListFromFile = SettingsManager::getSettingContents( "spawnSeed", "" );
+					std::string seedList(seedListFromFile);
+					delete [] seedListFromFile;
 					std::string seed = "";
 					if( seedList == "" ) {
 						seed = "";
@@ -19105,7 +19116,6 @@ void LivingLifePage::step() {
                 if( ourID != lastPlayerID ) {
                     homePosStack.deleteAll();
 					HetuwMod::initOnBirth();
-					minitech::initOnBirth();
                     // different ID than last time, delete old home markers
                     oldHomePosStack.deleteAll();
                     }
