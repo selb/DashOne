@@ -2562,6 +2562,10 @@ static void initOutputMap() {
         outputMapID = nextID;
         do {
 	    // Differentiate between maps generated from random births and tutorial lives.
+	    if( outputMapFileRaw != NULL) {
+		delete outputMapFileRaw;
+		outputMapFileRaw = NULL;
+	    }
             char *name = autoSprintf( "%s_%d.txt", tutorialDone ? "Auto" : "Tutorial", outputMapID );
             outputMapFileRaw = sceneDir.getChildFile( name );
             outputMapID++;
