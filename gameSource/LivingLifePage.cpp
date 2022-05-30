@@ -2639,6 +2639,14 @@ static void initOutputMap() {
     }
 }
 
+static void clearOutputMap() {
+    if( outputMapFile != NULL ) {
+        fclose( outputMapFile );
+        outputMapFile = NULL;
+        }
+    outputMapSavedPos.deleteAll();
+}
+
 
 static void outputMap( SimpleVector<char *> *tokens, 
     int sizeX, int sizeY,
@@ -11791,6 +11799,7 @@ void LivingLifePage::handleOurDeath( char inDisconnect ) {
     // so sound tails are not still playing when we we get reborn
     fadeSoundSprites( 0.1 );
     setSoundLoudness( 0 );
+    clearOutputMap();
     }
 
 
