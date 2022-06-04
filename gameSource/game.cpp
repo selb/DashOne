@@ -290,6 +290,10 @@ const char *getLinuxAppName() {
 
 
 const char *getFontTGAFileName() {
+    return "font_32_64.tga";
+    }
+    
+const char *getNewFontTGAFileName() {
     return "newfont_32_64.tga";
     }
 
@@ -314,6 +318,7 @@ char gamePlayingBack = false;
 
 
 Font *mainFont;
+Font *oldMainFont;
 Font *mainFontFixed;
 // closer spacing
 Font *mainFontReview;
@@ -440,9 +445,12 @@ void initDrawString( int inWidth, int inHeight ) {
 	HetuwMod::init();
 	hetuwSetViewSize();
 
-    //mainFont = new Font( getFontTGAFileName(), 6, 16, false, 16 );
-    mainFont = new Font( getFontTGAFileName(), 3, 6, false, 16 );
+
+    mainFont = new Font( getNewFontTGAFileName(), 3, 16, false, 16 );
+    // mainFont = new Font( getFontTGAFileName(), 6, 16, false, 16 );
     mainFont->setMinimumPositionPrecision( 1 );
+    oldMainFont = new Font( getFontTGAFileName(), 6, 6, false, 16 );
+    oldMainFont->setMinimumPositionPrecision( 1 );
 
     setViewCenterPosition( lastScreenViewCenter.x, lastScreenViewCenter.y );
 
@@ -462,6 +470,7 @@ void initDrawString( int inWidth, int inHeight ) {
 
 void freeDrawString() {
     delete mainFont;
+    delete oldMainFont;
     }
 
 
@@ -842,11 +851,11 @@ static void drawPauseScreen() {
 
     messagePos.y += 4.5  * (viewHeight / 15);
 
-    mainFont->drawString( translate( "pauseMessage1" ), 
+    oldMainFont->drawString( translate( "pauseMessage1" ), 
                            messagePos, alignCenter );
         
     messagePos.y -= 1.25 * (viewHeight / 15);
-    mainFont->drawString( translate( "pauseMessage2" ), 
+    oldMainFont->drawString( translate( "pauseMessage2" ), 
                            messagePos, alignCenter );
 
 
@@ -1128,7 +1137,7 @@ static void drawPauseScreen() {
         quitMessageKey = "pauseMessage3b";
         }
 
-    mainFont->drawString( translate( quitMessageKey ), 
+    oldMainFont->drawString( translate( quitMessageKey ), 
                           messagePos, alignCenter );
 
     }
@@ -2499,7 +2508,7 @@ void drawString( const char *inString, char inForceCenter ) {
     for( int i=0; i<numLines; i++ ) {
         
 
-        mainFont->drawString( lines[i], messagePos, align );
+        oldMainFont->drawString( lines[i], messagePos, align );
         messagePos.y -= 32;
         
         delete [] lines[i];
