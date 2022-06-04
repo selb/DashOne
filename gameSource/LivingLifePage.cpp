@@ -47,6 +47,7 @@
 #include "minorGems/util/log/AppLog.h"
 
 #include "minorGems/crypto/hashes/sha1.h"
+#include "OneLife/server/HashTable.h"
 
 #include <stdlib.h>//#include <math.h>
 #include <string>
@@ -2456,7 +2457,7 @@ void LivingLifePage::computePathToDest( LiveObject *inObject ) {
     
     
 static FILE *outputMapFile = NULL;
-static SimpleVector<GridPos> outputMapSavedPos;
+HashTable<char> outputMapSavedPos( 400 * 400, CHAR_MAX );
 int outputMapFile_w;
 int outputMapFile_h;
 int outputMapFile_oX;
@@ -2538,17 +2539,16 @@ static void initOutputMap() {
                 
                 if( numRead == 2 ) {
                     GridPos thisPos = { x, y };
-                    outputMapSavedPos.push_back( thisPos );
+                    outputMapSavedPos.insert( thisPos.x, thisPos.y, 0, 0, 1 );
                 }
-                
+
                 next++;
-                
+
             }
         
         }
     }
 }
-
 
 static void outputMap( SimpleVector<char *> *tokens, 
     int sizeX, int sizeY,
@@ -2580,19 +2580,16 @@ static void outputMap( SimpleVector<char *> *tokens,
                     realY < 0 )
                     continue;
                 
-                int savedAlready = false;
-                GridPos thisPos = { realX, realY };
+
+                char lookupSaved = false;
+                char savedAlready = outputMapSavedPos.lookup(realX, realY, 0, 0, &lookupSaved);
+                // return from lookup will either be default (false), or the real value, which is also in lookupSaved.
+                // However, lookupSaved is a pointer, and we aren't allocating memory for this, so we shouldn't use it.
+                // If there is no real value, lookupSaved never changes.
+                lookupSaved = false;
+
+
                 
-                for( int j=0; j<outputMapSavedPos.size(); j++ ) {
-                    if( equal( outputMapSavedPos.getElementDirect( j ), thisPos ) ) {
-                        savedAlready = true;
-                        break;
-                    }
-                }
-                
-                if( savedAlready ) continue;
-                
-                outputMapSavedPos.push_back( thisPos );
                 
                 int biome = -1;
                 int floor = 0;
@@ -2603,7 +2600,12 @@ static void outputMap( SimpleVector<char *> *tokens,
                         &( biome ),
                         &( floor ),
                         &( oid ) );
-                                
+
+                if( savedAlready != CHAR_MAX ) continue;
+                // Saving a little later, because this way we have access to the map for later changes.
+                // The extra time at this point is negligible.
+                outputMapSavedPos.insert(realX, realY, 0, 0, biome);
+
                 oid = getObjectParent( oid );
                 
                 fprintf( outputMapFile, "x=%d,y=%d\n", realX, realY );
