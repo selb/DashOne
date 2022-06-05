@@ -95,7 +95,6 @@ class ExistingAccountPage : public GamePage, public ActionListener {
         Background mGameLogo;
         
         TextButton mSeedButton;
-        TextButton mUnlockButton;
         
         TextButton mEmailLockButton;
         TextButton mKeyLockButton;
