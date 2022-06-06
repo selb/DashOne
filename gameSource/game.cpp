@@ -446,7 +446,7 @@ void initDrawString( int inWidth, int inHeight ) {
 	hetuwSetViewSize();
 
 
-    mainFont = new Font( getNewFontTGAFileName(), 3, 16, false, 16 );
+    mainFont = new Font( getNewFontTGAFileName(), 3, 4, false, 16 );
     // mainFont = new Font( getFontTGAFileName(), 6, 16, false, 16 );
     mainFont->setMinimumPositionPrecision( 1 );
     oldMainFont = new Font( getFontTGAFileName(), 6, 6, false, 16 );
