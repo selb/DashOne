@@ -30,7 +30,7 @@ TextField::TextField( Font *inDisplayFont,
                       const char *inAllowedChars,
                       const char *inForbiddenChars )
         : PageComponent( inX, inY ),
-          mActive( true ), 
+          mActive( true ), mHover( false ), 
           mContentsHidden( false ),
           mHiddenSprite( loadSprite( "hiddenFieldTexture.tga", false ) ),
           mFont( inDisplayFont ), 
@@ -146,6 +146,15 @@ TextField::~TextField() {
     if( mHiddenSprite != NULL ) {
         freeSprite( mHiddenSprite );
         }
+    }
+    
+    
+void TextField::setLabelText( const char *inLabelText ) {
+    if( mLabelText != NULL ) {
+        delete [] mLabelText;
+        }
+    
+    mLabelText = stringDuplicate( inLabelText );
     }
 
 
@@ -301,8 +310,7 @@ void TextField::draw() {
     drawRect( - mWide / 2, - mHigh / 2, 
               mWide / 2, mHigh / 2 );
     
-    // make the inside of the box yellow
-    setDrawColor( 1, 0.75, 0.2, 1 );
+    setDrawColor( 0.25, 0.25, 0.25, 1 );
     double pixWidth = mCharWidth / 8;
 
 
@@ -470,9 +478,6 @@ void TextField::draw() {
     char cursorCentered = false;
     doublePair centerPos = { 0, 0 };
     
-    // make inside text always black 
-    setDrawColor( 0, 0, 0, 1 );
-    
     if( ! tooLongFront ) {
         mFont->drawString( mDrawnText, textPos, alignLeft );
         mDrawnTextX = textPos.x;
@@ -588,6 +593,17 @@ void TextField::draw() {
 
     delete [] textBeforeCursorBase;
     delete [] textAfterCursorBase;
+    }
+
+
+char TextField::isInside( float inX, float inY ) {
+    return fabs( inX ) < mWide / 2 &&
+        fabs( inY ) < mHigh / 2;
+    }
+
+
+void TextField::pointerMove( float inX, float inY ) {
+    mHover = isInside( inX, inY );
     }
 
 
@@ -817,6 +833,13 @@ double TextField::getLeftEdgeX() {
 double TextField::getWidth() {
     
     return mWide;
+    }
+
+
+
+double TextField::setWidth( double inWide ) {
+    
+    mWide = inWide;
     }
 
 
@@ -1403,3 +1426,6 @@ void TextField::usePasteShortcut( char inShortcutOn ) {
     }
 
 
+char TextField::isMouseOver() {
+    return mHover;
+    }
