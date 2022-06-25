@@ -2221,6 +2221,10 @@ void drawFrame( char inUpdate ) {
                 // heck, allow twins in tutorial too, for now, it's funny
                 startConnecting();
                 }
+            else if( rebirthChoicePage->checkSignal( "settings" ) ) {
+                currentGamePage = settingsPage;
+                currentGamePage->base_makeActive( true );
+                }
             else if( rebirthChoicePage->checkSignal( "review" ) ) {
                 currentGamePage = reviewPage;
                 currentGamePage->base_makeActive( true );
