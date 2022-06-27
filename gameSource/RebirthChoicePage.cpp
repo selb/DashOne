@@ -83,7 +83,6 @@ RebirthChoicePage::RebirthChoicePage()
     setButtonStyle( &mTutorialButton );
     setButtonStyle( &mSettingsButton );
     setButtonStyle( &mMenuButton );
-    setButtonStyle( &mFriendsButton );
     
     mQuitButton.addActionListener( this );
     mReviewButton.addActionListener( this );
@@ -92,7 +91,6 @@ RebirthChoicePage::RebirthChoicePage()
     mTutorialButton.addActionListener( this );
     mSettingsButton.addActionListener( this );
     mMenuButton.addActionListener( this );
-    mFriendsButton.addActionListener( this );
 
     int reviewPosted = SettingsManager::getIntSetting( "reviewPosted", 0 );
     
@@ -140,9 +138,6 @@ void RebirthChoicePage::actionPerformed( GUIComponent *inTarget ) {
         }
     else if( inTarget == &mMenuButton ) {
         setSignal( "menu" );
-        }
-    else if( inTarget == &mFriendsButton ) {
-        setSignal( "friends" );
         }
     }
 

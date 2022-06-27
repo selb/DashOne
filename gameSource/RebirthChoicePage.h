@@ -37,6 +37,5 @@ class RebirthChoicePage : public GamePage, public ActionListener {
         TextButton mTutorialButton;
         TextButton mSettingsButton;
         TextButton mMenuButton;
-        TextButton mFriendsButton;
 
     };
