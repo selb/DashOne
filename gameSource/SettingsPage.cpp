@@ -129,13 +129,13 @@ SettingsPage::SettingsPage()
     addComponent( &mEnableNudeBox );
     mEnableNudeBox.addActionListener( this );
 	
-	addComponent( &mEnableFOVBox );
+	// addComponent( &mEnableFOVBox );
     mEnableFOVBox.addActionListener( this );
 	
-	addComponent( &mEnableKActionsBox );
+	// addComponent( &mEnableKActionsBox );
     mEnableKActionsBox.addActionListener( this );
 	
-	addComponent( &mEnableCenterCameraBox );
+	// addComponent( &mEnableCenterCameraBox );
     mEnableCenterCameraBox.addActionListener( this );
     
     
@@ -398,7 +398,7 @@ void SettingsPage::draw( doublePair inViewCenter,
         pos.x -= 30;
         pos.y -= 2;
 
-        mainFont->drawString( "ENABLE ZOOM", pos, alignRight );
+        // mainFont->drawString( "ENABLE ZOOM", pos, alignRight );
         }
 	
     if( mEnableKActionsBox.isVisible() ) {
@@ -407,7 +407,7 @@ void SettingsPage::draw( doublePair inViewCenter,
         pos.x -= 30;
         pos.y -= 2;
 
-        mainFont->drawString( "KEYBOARD ACTIONS:", pos, alignRight );
+        // mainFont->drawString( "KEYBOARD ACTIONS:", pos, alignRight );
         }
 	
     if( mEnableCenterCameraBox.isVisible() ) {
@@ -416,7 +416,7 @@ void SettingsPage::draw( doublePair inViewCenter,
         pos.x -= 30;
         pos.y -= 2;
 
-        mainFont->drawString( "ALWAYS CENTER CAMERA", pos, alignRight );
+        // mainFont->drawString( "ALWAYS CENTER CAMERA", pos, alignRight );
         }
 
 
