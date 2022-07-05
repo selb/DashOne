@@ -1773,6 +1773,7 @@ void drawFrame( char inUpdate ) {
                     if ( showingInGameSettings ) {
                         currentGamePage = livingLifePage;
                         currentGamePage->base_makeActive( false );
+                        showingInGameSettings = false;
                         }
                     else {
                         currentGamePage = existingAccountPage;
