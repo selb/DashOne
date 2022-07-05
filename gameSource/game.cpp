@@ -856,6 +856,11 @@ static void drawFrameNoUpdate( char inUpdate );
 
 
 static void drawPauseScreen() {
+    
+    if( currentGamePage == existingAccountPage && isPaused() ) {
+        pauseGame();
+        return;
+        }
 
     double viewHeight = viewHeightFraction * viewWidth;
 
