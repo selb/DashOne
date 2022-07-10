@@ -9967,7 +9967,7 @@ void LivingLifePage::draw( doublePair inViewCenter,
 
             pos.y -= 50;
             
-            drawFixedShadowStringWhite( netStringB, pos );
+            drawFixedShadowString( netStringB, pos );
             
             graphPos = pos;
             
@@ -9985,7 +9985,7 @@ void LivingLifePage::draw( doublePair inViewCenter,
             delete [] netStringB;
             }
         else {
-            drawFixedShadowStringWhite( translate( "netPending" ), pos );
+            drawFixedShadowString( translate( "netPending" ), pos );
             }
         }
     
@@ -10016,7 +10016,7 @@ void LivingLifePage::draw( doublePair inViewCenter,
                              translate( "ms" ) );
             }
 
-        drawFixedShadowStringWhite( pingString, pos );
+        drawFixedShadowString( pingString, pos );
             
         delete [] pingString;
     
