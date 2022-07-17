@@ -20,6 +20,7 @@ hetuwFont.cpp \
 hetuwTCPConnection.cpp \
 phex.cpp \
 game.cpp \
+Background.cpp \
 spriteBank.cpp \
 objectBank.cpp \
 transitionBank.cpp \

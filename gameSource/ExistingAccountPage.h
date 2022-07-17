@@ -3,9 +3,14 @@
 #include "TextField.h"
 #include "TextButton.h"
 #include "KeyEquivalentTextButton.h"
-
+#include "DropdownList.h"
+#include "RadioButtonSet.h"
 
 #include "minorGems/ui/event/ActionListener.h"
+#include "minorGems/util/random/JenkinsRandomSource.h"
+#include "PageComponent.h"
+#include "Background.h"
+
 
 
 class ExistingAccountPage : public GamePage, public ActionListener {
@@ -39,6 +44,8 @@ class ExistingAccountPage : public GamePage, public ActionListener {
         // for TAB and ENTER (switch fields and start login)
         virtual void keyDown( unsigned char inASCII );
         
+        virtual void pointerUp( float inX, float inY );
+        
         // for arrow keys (switch fields)
         virtual void specialKeyDown( int inKeyCode );
         
@@ -48,35 +55,61 @@ class ExistingAccountPage : public GamePage, public ActionListener {
 
     protected:
         
+        Background mBackground;
+        Background mGameLogo;
+        
+        // Left Pane Page 0
         TextField mEmailField;
+        TextButton mEmailLockButton;
+        KeyEquivalentTextButton mPasteEmailButton;
+        
         TextField mKeyField;
+        TextButton mKeyLockButton;
+        KeyEquivalentTextButton mPasteButton;
 
         TextField *mFields[2];
-
-        TextButton mAtSignButton;
-
-        KeyEquivalentTextButton mPasteButton;
-        KeyEquivalentTextButton mPasteEmailButton;
-
-        TextButton mDisableCustomServerButton;
         
-        TextButton mLoginButton;
+        TextButton mNextToGameTabButton;
+        
+        // Left Pane Page 1
         TextButton mFriendsButton;
-        TextButton mGenesButton;
+        TextButton mSoloButton;
+        TextField mTwinCodeField;
+        TextButton mGenerateButton;
+        TextButton mTwinCodeCopyButton;
+        TextButton mTwinCodePasteButton;
+        RadioButtonSet *mPlayerCountRadioButtonSet;
+        JenkinsRandomSource mRandSource;
+        SimpleVector<char*> mWordList;
+        
+        TextButton mSpecificButton;
+        TextButton mRandomButton;
+        DropdownList mSpawnSeed;
+        TextButton mSpawnSeedLockButton;
+        TextField mTargetFamily;
+        RadioButtonSet *mSeedOrFamilyButtonSet;
+        
+        TextButton mBackToAccountTabButton;
+        TextButton mLoginButton;
+        
+        // Right Pane
+        TextButton mSettingsButton;
+        TextButton mTutorialButton;
         TextButton mFamilyTreesButton;
         TextButton mTechTreeButton;
-        TextButton mClearAccountButton;
         TextButton mCancelButton;
-
-        TextButton mSettingsButton;
-        TextButton mReviewButton;
         
+        // Status
         TextButton mRetryButton;
         TextButton mRedetectButton;
-
-        TextButton mViewAccountButton;
+        TextButton mDisableCustomServerButton;
         
-        TextButton mTutorialButton;
+        // Not in use
+        TextButton mGenesButton;
+        TextButton mClearAccountButton;
+        TextButton mReviewButton;
+        TextButton mAtSignButton;
+        TextButton mViewAccountButton;
         
 
         double mPageActiveStartTime;
@@ -85,7 +118,10 @@ class ExistingAccountPage : public GamePage, public ActionListener {
 
         char mHideAccount;
 
-        void switchFields();
+        void nextPage();
+        
+        void updatefieldsAndLockButtons();
+        void updateLeftPane();
         
         void processLogin( char inStore, const char *inSignal );
 

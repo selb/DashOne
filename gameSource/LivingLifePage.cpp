@@ -76,6 +76,7 @@ extern const char *clientTag;
 extern double frameRateFactor;
 
 extern Font *mainFont;
+extern Font *oldMainFont;
 extern Font *numbersFontFixed;
 extern Font *mainFontReview;
 extern Font *handwritingFont;
@@ -83,7 +84,7 @@ extern Font *pencilFont;
 extern Font *pencilErasedFont;
 
 void LivingLifePage::hetuwDrawMainFont(const char* str, doublePair drawPos, TextAlignment align) {
-	mainFont->drawString( str, drawPos, align );
+	oldMainFont->drawString( str, drawPos, align );
 }
 
 double LivingLifePage::hetuwMeasureStringMainFont(const char* str) {
@@ -159,6 +160,8 @@ extern char usingCustomServer;
 extern char *serverIP;
 extern int serverPort;
 
+extern char useTargetFamily;
+extern char useSpawnSeed;
 extern char *userEmail;
 extern char *userTwinCode;
 extern int userTwinCount;
@@ -6911,7 +6914,7 @@ void LivingLifePage::draw( doublePair inViewCenter,
             
             doublePair conPos = pos;
             conPos.y += 128;
-            drawMessage( "connecting", conPos, false, connectionMessageFade );
+            drawMessage( "connecting", conPos, false, connectionMessageFade, true );
             }
 
         
@@ -6926,7 +6929,7 @@ void LivingLifePage::draw( doublePair inViewCenter,
             
             doublePair custPos = pos;
             custPos.y += 192;
-            drawMessage( message, custPos );
+            drawMessage( message, custPos, false, 1.0, true );
             
             delete [] message;
             }
@@ -6936,20 +6939,20 @@ void LivingLifePage::draw( doublePair inViewCenter,
         if( ! serverSocketConnected ) {
             // don't draw waiting message, not connected yet
             if( userReconnect ) {
-                drawMessage( "waitingReconnect", pos );
+                drawMessage( "waitingReconnect", pos, false, 1.0, true );
 				HetuwMod::drawWaitingText(pos);
                 }
             }
         else if( userReconnect ) {
-            drawMessage( "waitingReconnect", pos );
+            drawMessage( "waitingReconnect", pos, false, 1.0, true );
 			HetuwMod::drawWaitingText(pos);
             }
         else if( mPlayerInFlight ) {
-            drawMessage( "waitingArrival", pos );
+            drawMessage( "waitingArrival", pos, false, 1.0, true );
 			HetuwMod::drawWaitingText(pos);
             }
         else if( userTwinCode == NULL ) {
-            drawMessage( "waitingBirth", pos );
+            drawMessage( "waitingBirth", pos, false, 1.0, true );
 			HetuwMod::drawWaitingText(pos);
             }
         else {
@@ -6964,14 +6967,14 @@ void LivingLifePage::draw( doublePair inViewCenter,
             char *message = autoSprintf( translate( "waitingBirthFriends" ),
                                          sizeString );
 
-            drawMessage( message, pos );
+            drawMessage( message, pos, false, 1.0, true );
             delete [] message;
 
             if( !mStartedLoadingFirstObjectSet ) {
                 doublePair tipPos = pos;
                 tipPos.y -= 200;
                 
-                drawMessage( translate( "cancelWaitingFriends" ), tipPos );
+                drawMessage( translate( "cancelWaitingFriends" ), tipPos, false, 1.0, true );
                 }
             }
         
@@ -9964,7 +9967,7 @@ void LivingLifePage::draw( doublePair inViewCenter,
 
             pos.y -= 50;
             
-            drawFixedShadowStringWhite( netStringB, pos );
+            drawFixedShadowString( netStringB, pos );
             
             graphPos = pos;
             
@@ -9982,7 +9985,7 @@ void LivingLifePage::draw( doublePair inViewCenter,
             delete [] netStringB;
             }
         else {
-            drawFixedShadowStringWhite( translate( "netPending" ), pos );
+            drawFixedShadowString( translate( "netPending" ), pos );
             }
         }
     
@@ -10013,7 +10016,7 @@ void LivingLifePage::draw( doublePair inViewCenter,
                              translate( "ms" ) );
             }
 
-        drawFixedShadowStringWhite( pingString, pos );
+        drawFixedShadowString( pingString, pos );
             
         delete [] pingString;
     
@@ -13181,6 +13184,12 @@ void LivingLifePage::step() {
             if( userReconnect ) {
                 setSignal( "reconnectFailed" );
                 }
+            // Judge if the failed login is due to bad targetFamily base on loginSuccess
+            // and whether we are trying to specify a targetFamily in the first place
+            // since we are not creating a new message type just for this case at least for now...
+            else if( useTargetFamily && SettingsManager::getIntSetting( "loginSuccess", 0 ) ) {
+                setSignal( "targetFamilyFailed" );
+                }
             else {
                 setSignal( "loginFailed" );
                 }
@@ -14687,26 +14696,38 @@ void LivingLifePage::step() {
             if( strlen( userEmail ) > 0 ) {
                 std::string seededEmail = std::string( userEmail );
 
-				// If user doesn't have a seed in their email field
-				if( seededEmail.find('|') == std::string::npos ) {
-					char *seedListFromFile = SettingsManager::getSettingContents( "spawnSeed", "" );
-					std::string seedList(seedListFromFile);
-					delete [] seedListFromFile;
-					std::string seed = "";
-					if( seedList == "" ) {
-						seed = "";
-					} else if( seedList.find('\n') == std::string::npos ) {
-						seed = seedList;
-					} else if( seedList.find('\n') != std::string::npos ) {
-						seed = seedList.substr( 0, seedList.find('\n') );
-					}
+				// If user doesn't have a seed or targetFamily in their email field
+				if( seededEmail.find('|') == std::string::npos &&
+                    seededEmail.find(':') == std::string::npos ) {
+                    if( useSpawnSeed ) {
+                        std::string seedList = SettingsManager::getSettingContents( "spawnSeed", "" );
+                        std::string seed = "";
+                        if( seedList == "" ) {
+                            seed = "";
+                        } else if( seedList.find('\n') == std::string::npos ) {
+                            seed = seedList;
+                        } else if( seedList.find('\n') != std::string::npos ) {
+                            seed = seedList.substr( 0, seedList.find('\n') );
+                        }
 
-					// And if the user has a seed set in settings
-					if( seed != "" ) {
-						// Add seed delim and then seed
-						seededEmail += '|';
-						seededEmail += seed;
-						}
+                        // And if the user has a seed set in settings
+                        if( seed != "" ) {
+                            // Add seed delim and then seed
+                            seededEmail += '|';
+                            seededEmail += seed;
+                            }
+                        }
+                    // Only if a seed is not specified we'd use a targetFamily
+                    else if( seededEmail.find(':') == std::string::npos && useTargetFamily ) {
+                        char *targetFamilyChars = SettingsManager::getSettingContents( "targetFamily", "" );
+                        std::string targetFamily( targetFamilyChars );
+                        delete [] targetFamilyChars;
+                        
+                        if( targetFamily != "" ) {
+                            seededEmail += ':';
+                            seededEmail += targetFamily;
+                            }
+                        }
 					}
 
                 tempEmail = stringDuplicate( seededEmail.c_str() );
@@ -22683,6 +22704,14 @@ void LivingLifePage::makeActive( char inFresh ) {
     
 
     if( !inFresh ) {
+		//reset camera if LivingLifePage is made active again
+		LiveObject *ourLiveObject = getOurLiveObject();
+		if ( ourLiveObject != NULL )
+		
+		lastScreenViewCenter.x = ourLiveObject->currentPos.x * CELL_D;
+		lastScreenViewCenter.y = ourLiveObject->currentPos.y * CELL_D;
+		setViewCenterPosition( lastScreenViewCenter.x,
+							   lastScreenViewCenter.y );
         return;
         }
 

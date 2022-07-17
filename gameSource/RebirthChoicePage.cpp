@@ -19,6 +19,8 @@ extern Font *mainFont;
 extern char *userEmail;
 extern char *accountKey;
 
+static bool useSteamUpdate = false;
+
 
 extern SpriteHandle instructionsSprite;
 
@@ -29,33 +31,51 @@ static doublePair tutorialButtonPos = { 522, 300 };
 
 
 RebirthChoicePage::RebirthChoicePage()
-        : mQuitButton( mainFont, -150, -128, 
+        : mBackground( "background.tga", 0.75f ),
+        
+          mQuitButton( mainFont, 0, -224, 
                        translate( "quit" ) ),
           mReviewButton( mainFont, 150, 64, 
                        translate( "postReviewButton" ) ),
-          mRebornButton( mainFont, 150, -128, 
+          mRebornButton( mainFont, 0, 64, 
                          translate( "reborn" ) ),
-          mGenesButton( mainFont, -300, 64, 
+          mGenesButton( mainFont, 0, -32, 
                         translate( "geneticHistoryButton" ) ),
-          mTutorialButton( mainFont, tutorialButtonPos.x, tutorialButtonPos.y, 
+          mSettingsButton( mainFont, 0, -32,
+                           translate( "settingsButton" ) ),
+          mTutorialButton( mainFont, 0, 64, 
                            translate( "tutorial" ) ),
-          mMenuButton( mainFont, -tutorialButtonPos.x, tutorialButtonPos.y, 
-                       translate( "menu" ) ),
-          // only visible in hard to quit mode
-          mFriendsButton( mainFont, -360, 0, 
-                          translate( "friendsButton" ) ) {
+          mMenuButton( mainFont, 0, -128, 
+                       "BACK" ){
+    
+    addComponent( &mBackground );
+    
     if( !isHardToQuitMode() ) {
-        addComponent( &mQuitButton );
-        addComponent( &mReviewButton );
+        // addComponent( &mQuitButton );
+        // addComponent( &mReviewButton );
         addComponent( &mMenuButton );
-	addComponent( &mTutorialButton );
-	addComponent( &mGenesButton );
+        addComponent( &mTutorialButton );
+        addComponent( &mGenesButton );
+    
         }
     else {
-        mRebornButton.setPosition( 0, -200 );
+        // mRebornButton.setPosition( 0, -200 );
+        // mGenesButton.setPosition( 0, 0 );
         }
+        
+    // mQuitButton.setSize( 260, 60 );
+    mRebornButton.setSize( 260, 60 );
+    mSettingsButton.setSize( 260, 60 );
+    mTutorialButton.setSize( 260, 60 );
+    mMenuButton.setSize( 260, 60 );
+    // mGenesButton.setSize( 260, 60 );
+        
+    mGenesButton.setVisible( false );
     
     addComponent( &mRebornButton );
+    addComponent( &mTutorialButton );
+    addComponent( &mGenesButton );
+    addComponent( &mSettingsButton );
 
     setButtonStyle( &mQuitButton );
     setButtonStyle( &mReviewButton );
@@ -63,22 +83,32 @@ RebirthChoicePage::RebirthChoicePage()
     setButtonStyle( &mGenesButton );
     
     setButtonStyle( &mTutorialButton );
+    setButtonStyle( &mSettingsButton );
     setButtonStyle( &mMenuButton );
-    setButtonStyle( &mFriendsButton );
     
     mQuitButton.addActionListener( this );
     mReviewButton.addActionListener( this );
     mRebornButton.addActionListener( this );
     mGenesButton.addActionListener( this );
     mTutorialButton.addActionListener( this );
+    mSettingsButton.addActionListener( this );
     mMenuButton.addActionListener( this );
-    mFriendsButton.addActionListener( this );
 
     int reviewPosted = SettingsManager::getIntSetting( "reviewPosted", 0 );
     
     if( reviewPosted ) {
         mReviewButton.setLabelText( translate( "updateReviewButton" ) );
         }
+        
+
+    mQuitButton.setCursorTip( "CLOSE THE GAME" );
+    mRebornButton.setCursorTip( "BE BORN AGAIN WITH THE SAME SPAWN SETTINGS" );
+    mGenesButton.setCursorTip( "CHECK YOUR GENETIC HISTORY" );
+    
+    mTutorialButton.setCursorTip( "START THE TUTORIAL AGAIN" );
+    mSettingsButton.setCursorTip( "CHANGE GAME SETTINGS" );
+    mMenuButton.setCursorTip( "RETURN TO MAIN MENU" );
+    
     }
 
 
@@ -105,11 +135,11 @@ void RebirthChoicePage::actionPerformed( GUIComponent *inTarget ) {
     else if( inTarget == &mTutorialButton ) {
         setSignal( "tutorial" );
         }
+    else if( inTarget == &mSettingsButton ) {
+        setSignal( "settings" );
+        }
     else if( inTarget == &mMenuButton ) {
         setSignal( "menu" );
-        }
-    else if( inTarget == &mFriendsButton ) {
-        setSignal( "friends" );
         }
     }
 
@@ -149,6 +179,22 @@ void RebirthChoicePage::draw( doublePair inViewCenter,
 
 
 void RebirthChoicePage::makeActive( char inFresh ) {
+    
+    if( inFresh ) useSteamUpdate = SettingsManager::getIntSetting( "useSteamUpdate", 0 ) != 0;
+    
+    if( useSteamUpdate ) {
+        if( useSteamUpdate ) {
+            mBackground.setVisible( false );
+            setDarkButtonStyle( &mQuitButton );
+            setDarkButtonStyle( &mReviewButton );
+            setDarkButtonStyle( &mRebornButton );
+            setDarkButtonStyle( &mGenesButton );
+            setDarkButtonStyle( &mTutorialButton );
+            setDarkButtonStyle( &mSettingsButton );
+            setDarkButtonStyle( &mMenuButton );          
+            }
+        }
+    
     triggerLifeTokenUpdate();
     triggerFitnessScoreUpdate();
     
@@ -166,7 +212,7 @@ void RebirthChoicePage::makeActive( char inFresh ) {
         mReviewButton.setVisible( false );
         }
     else {
-        mReviewButton.setVisible( true );
+        // mReviewButton.setVisible( true );
         }
 
 
@@ -175,13 +221,16 @@ void RebirthChoicePage::makeActive( char inFresh ) {
 
     if( !tutorialDone ) {
         mRebornButton.setVisible( false );
+        mTutorialButton.setVisible( true );
+        
         doublePair rebornPos = mRebornButton.getPosition();
         mTutorialButton.setPosition( rebornPos.x, rebornPos.y );
         mTutorialButton.setLabelText( translate( "restartTutorial" ) );
         }
     else {
         mRebornButton.setVisible( true );
-        mTutorialButton.setPosition( tutorialButtonPos.x, tutorialButtonPos.y );
+        mTutorialButton.setVisible( false );
+        
         mTutorialButton.setLabelText( translate( "tutorial" ) );
         }
     }
