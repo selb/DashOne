@@ -115,7 +115,7 @@ SettingsPage::SettingsPage()
     addComponent( mCursorModeSet );
     mCursorModeSet->addActionListener( this );
     
-	addComponent( &mEnableKActionsBox );
+	// addComponent( &mEnableKActionsBox );
     mEnableKActionsBox.addActionListener( this );
     
     // Gameplay
@@ -137,9 +137,9 @@ SettingsPage::SettingsPage()
     
     addComponent( &mEnableNudeBox );
     mEnableNudeBox.addActionListener( this );
-	addComponent( &mEnableCenterCameraBox );
+	// addComponent( &mEnableCenterCameraBox );
     mEnableCenterCameraBox.addActionListener( this );
-	addComponent( &mEnableFOVBox );
+	// addComponent( &mEnableFOVBox );
     mEnableFOVBox.addActionListener( this );
     
     // Left pane
