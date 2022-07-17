@@ -964,7 +964,7 @@ static void drawPauseScreen() {
             drawPos.x = backgroundWritePos.x + columnWidth/2;
             drawPos.y = lastScreenViewCenter.y; // + columnStartY;
 
-            drawSprite( sheetSprites[c], drawPos, 1.0 );
+            if ( sheetSprites[c] != nullptr ) drawSprite( sheetSprites[c], drawPos, 1.0 );
         
             }
             

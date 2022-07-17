@@ -704,8 +704,10 @@ void ExistingAccountPage::makeActive( char inFresh ) {
 
         }
     else {
-        mBackground.setVisible( true );
-        mGameLogo.setVisible( true );
+        if( !useSteamUpdate ) {
+            mBackground.setVisible( true );
+            mGameLogo.setVisible( true );
+            }
         
         mSettingsButton.setVisible( true );
         mTutorialButton.setVisible( true );
@@ -1512,6 +1514,8 @@ void ExistingAccountPage::draw( doublePair inViewCenter,
     if( useSteamUpdate && 
         (!mTwinCodeField.isFocused() || !mTwinCodeField.isVisible()) &&
         ( keyFieldLockedMode != 2 ) ) {
+        mBackground.setVisible( false );
+        mGameLogo.setVisible( false );
         setDrawColor( 1, 1, 1, 0.75 );
         drawSprite( instructionsSprite, {0, 0} );
         }

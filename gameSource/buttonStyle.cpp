@@ -131,7 +131,7 @@ void setDarkButtonStyle( Button *inButton ) {
     inButton->setBorderColor( 0.5, 0.5, 0.5, 1 );
     inButton->setHoverBorderColor( 1, 1, 1, 1 );
     inButton->setDragOverBorderColor( 1, 1, 1, 1 );
-    inButton->setInactiveBorderColor( 0, 0, 0, 1 );
+    inButton->setInactiveBorderColor( 1, 1, 1, 1 );
     
     inButton->setBracketCoverLength( 16 );
     doublePair shift = { 0, -2 };

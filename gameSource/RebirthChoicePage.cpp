@@ -19,6 +19,8 @@ extern Font *mainFont;
 extern char *userEmail;
 extern char *accountKey;
 
+static bool useSteamUpdate = false;
+
 
 extern SpriteHandle instructionsSprite;
 
@@ -177,6 +179,22 @@ void RebirthChoicePage::draw( doublePair inViewCenter,
 
 
 void RebirthChoicePage::makeActive( char inFresh ) {
+    
+    if( inFresh ) useSteamUpdate = SettingsManager::getIntSetting( "useSteamUpdate", 0 ) != 0;
+    
+    if( useSteamUpdate ) {
+        if( useSteamUpdate ) {
+            mBackground.setVisible( false );
+            setDarkButtonStyle( &mQuitButton );
+            setDarkButtonStyle( &mReviewButton );
+            setDarkButtonStyle( &mRebornButton );
+            setDarkButtonStyle( &mGenesButton );
+            setDarkButtonStyle( &mTutorialButton );
+            setDarkButtonStyle( &mSettingsButton );
+            setDarkButtonStyle( &mMenuButton );          
+            }
+        }
+    
     triggerLifeTokenUpdate();
     triggerFitnessScoreUpdate();
     

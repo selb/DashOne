@@ -24,6 +24,8 @@ extern float musicLoudness;
 
 extern bool showingInGameSettings;
 
+static bool useSteamUpdate = false;
+
 
 SettingsPage::SettingsPage()
         : mBackground( "background.tga", 0.75f ),
@@ -466,7 +468,9 @@ void SettingsPage::step() {
 
 
 void SettingsPage::makeActive( char inFresh ) {
-    if( inFresh ) {        
+    if( inFresh ) {
+
+        useSteamUpdate = SettingsManager::getIntSetting( "useSteamUpdate", 0 ) != 0;
 
         int mode = getCursorMode();
         
@@ -500,8 +504,17 @@ void SettingsPage::makeActive( char inFresh ) {
             tryCount ++;
             }
         
-        if( SettingsManager::getIntSetting( "useSteamUpdate", 0 ) ) {
+        if( useSteamUpdate ) {
             mEditAccountButton.setVisible( true );
+            mBackground.setVisible( false );
+            setDarkButtonStyle( &mRestartButton );
+            setDarkButtonStyle( &mGameplayButton );
+            setDarkButtonStyle( &mControlButton );
+            setDarkButtonStyle( &mScreenButton );
+            setDarkButtonStyle( &mSoundButton );
+            setDarkButtonStyle( &mBackButton );
+            setDarkButtonStyle( &mEditAccountButton );
+            setDarkButtonStyle( &mRedetectButton );
             }
         else {
             mEditAccountButton.setVisible( false );
