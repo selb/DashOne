@@ -3111,6 +3111,12 @@ LivingLifePage::LivingLifePage()
     // allow ctrl-v to paste into chat from clipboard
     mSayField.usePasteShortcut( true );
     
+    // these are vog controls
+    mObjectPicker.setIgnoredKey( 'V' );
+    mObjectPicker.setIgnoredKey( 'I' );
+    mObjectPicker.setIgnoredKey( 'M' );
+    mObjectPicker.setIgnoredKey( 'N' );
+    
     initLiveTriggers();
 
     for( int i=0; i<4; i++ ) {
