@@ -10,6 +10,8 @@
 #include "minorGems/util/SimpleVector.h"
 #include "minorGems/graphics/openGL/KeyboardHandlerGL.h"
 
+#include <string>
+
 
 
 // start:  none focused
@@ -30,7 +32,7 @@ TextField::TextField( Font *inDisplayFont,
                       const char *inAllowedChars,
                       const char *inForbiddenChars )
         : PageComponent( inX, inY ),
-          mActive( true ), 
+          mActive( true ), mHover( false ), 
           mContentsHidden( false ),
           mHiddenSprite( loadSprite( "hiddenFieldTexture.tga", false ) ),
           mFont( inDisplayFont ), 
@@ -146,6 +148,15 @@ TextField::~TextField() {
     if( mHiddenSprite != NULL ) {
         freeSprite( mHiddenSprite );
         }
+    }
+    
+    
+void TextField::setLabelText( const char *inLabelText ) {
+    if( mLabelText != NULL ) {
+        delete [] mLabelText;
+        }
+    
+    mLabelText = stringDuplicate( inLabelText );
     }
 
 
@@ -587,8 +598,19 @@ void TextField::draw() {
     }
 
 
+char TextField::isInside( float inX, float inY ) {
+    return fabs( inX ) < mWide / 2 &&
+        fabs( inY ) < mHigh / 2;
+    }
+
+
+void TextField::pointerMove( float inX, float inY ) {
+    mHover = isInside( inX, inY );
+    }
+
+
 void TextField::pointerUp( float inX, float inY ) {
-    if( mIgnoreMouse ) {
+    if( mIgnoreMouse || mIgnoreEvents ) {
         return;
         }
     
@@ -646,20 +668,20 @@ void TextField::pointerUp( float inX, float inY ) {
 
 unsigned char TextField::processCharacter( unsigned char inASCII ) {
 
-    unsigned char processedChar = inASCII;
-        
-    if( mForceCaps ) {
-        processedChar = toupper( inASCII );
-        }
-
     if( mForbiddenChars != NULL ) {
         int num = strlen( mForbiddenChars );
             
         for( int i=0; i<num; i++ ) {
-            if( mForbiddenChars[i] == processedChar ) {
+            if( mForbiddenChars[i] == inASCII ) {
                 return 0;
                 }
             }
+        }
+
+    unsigned char processedChar = inASCII;
+        
+    if( mForceCaps ) {
+        processedChar = toupper( inASCII );
         }
         
 
@@ -799,6 +821,33 @@ void TextField::setIgnoreMouse( char inIgnore ) {
 double TextField::getRightEdgeX() {
     
     return mX + mWide / 2;
+    }
+
+
+
+double TextField::getLeftEdgeX() {
+    
+    return mX - mWide / 2;
+    }
+
+
+
+double TextField::getWidth() {
+    
+    return mWide;
+    }
+
+
+
+double TextField::setWidth( double inWide ) {
+    
+    mWide = inWide;
+    }
+    
+    
+double TextField::setHigh( double inHigh ) {
+    
+    mHigh = inHigh;
     }
 
 
@@ -1166,6 +1215,20 @@ void TextField::specialKeyUp( int inKeyCode ) {
 
 
 
+void TextField::setIgnoredKey( unsigned char inASCII ) {
+    
+    std::string newChars( mForbiddenChars );
+    newChars.push_back( inASCII );
+    if( mForbiddenChars != NULL ) {
+        delete [] mForbiddenChars;
+        mForbiddenChars = NULL;
+        }
+    mForbiddenChars = strdup( newChars.c_str() );
+    
+    }
+
+
+
 void TextField::focus() {
     
     if( sFocusedTextField != NULL && sFocusedTextField != this ) {
@@ -1385,3 +1448,6 @@ void TextField::usePasteShortcut( char inShortcutOn ) {
     }
 
 
+char TextField::isMouseOver() {
+    return mHover;
+    }
