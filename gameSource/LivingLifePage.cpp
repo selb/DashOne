@@ -2465,9 +2465,88 @@ int outputMapFile_h;
 int outputMapFile_oX;
 int outputMapFile_oY;
 
+std::string getSeededEmail() {
+    char *tempEmail;
+
+    if( strlen( userEmail ) > 0 ) {
+	std::string seededEmail = std::string( userEmail );
+
+    // If user doesn't have a seed or targetFamily in their email field
+    if( seededEmail.find('|') == std::string::npos &&
+        seededEmail.find(':') == std::string::npos ) {
+        if( useSpawnSeed ) {
+            std::string seedList = SettingsManager::getSettingContents( "spawnSeed", "" );
+            std::string seed = "";
+            if( seedList == "" ) {
+                seed = "";
+            } else if( seedList.find('\n') == std::string::npos ) {
+                seed = seedList;
+            } else if( seedList.find('\n') != std::string::npos ) {
+                seed = seedList.substr( 0, seedList.find('\n') );
+            }
+
+            // And if the user has a seed set in settings
+            if( seed != "" ) {
+                // Add seed delim and then seed
+                seededEmail += '|';
+                seededEmail += seed;
+                }
+            }
+        // Only if a seed is not specified we'd use a targetFamily
+        else if( seededEmail.find(':') == std::string::npos && useTargetFamily ) {
+            char *targetFamilyChars = SettingsManager::getSettingContents( "targetFamily", "" );
+            std::string targetFamily( targetFamilyChars );
+            delete [] targetFamilyChars;
+            
+            if( targetFamily != "" ) {
+                seededEmail += ':';
+                seededEmail += targetFamily;
+                }
+            }
+        }
+
+    tempEmail = stringDuplicate( seededEmail.c_str() );
+    }
+    else {
+        // a blank email
+        // this will cause LOGIN message to have one less token
+        
+        // stick a place-holder in there instead
+        tempEmail = stringDuplicate( "blank_email" );
+        }
+    std::string seededEmail = std::string( tempEmail );
+    delete [] tempEmail;
+    return seededEmail;
+
+}
+static std::string url_encode(const std::string &value) {
+    ostringstream escaped;
+    escaped.fill('0');
+    escaped << hex;
+
+    for( string::const_iterator i = value.begin(), n = value.end(); i != n; ++i) {
+        string::value_type c = (*i);
+
+        // Keep alphanumeric and other accepted characters intact
+        if( isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') {
+            escaped << c;
+            continue;
+            }
+
+        // Any other characters are percent-encoded
+	if( int((unsigned char) c) < 17 ) {
+            escaped << "0";
+	    }
+        escaped << uppercase;
+        escaped << '%' << int((unsigned char) c);
+        escaped << nouppercase;
+        }
+
+    return escaped.str();
+}
 
 static void initOutputMap() {
-    
+
     File sceneDir( NULL, "scenes" );
     
     if( ! sceneDir.exists() ) {
@@ -2478,29 +2557,52 @@ static void initOutputMap() {
         AppLog::error( "Non-directory scenes is in the way" );
         return;
         }
-    
+
     int outputMapID = SettingsManager::getIntSetting( "outputMapID", -1 );
-    
+    // Get seed from email, so it will find it whether added on in the settings
+    // or input manually as the login.
+    std::string seededEmail = getSeededEmail();
+    std::string seed = "";
+    auto npos = seededEmail.find("|");
+    if (npos != std::string::npos) {
+        seed = seededEmail.substr(npos + 1);
+        }
+
     File *nextFile = sceneDir.getChildFile( "next.txt" );
     int nextID = nextFile->readFileIntContents( 0 );
-    if( outputMapID == -1 ) {
+    // Check to see if the tutorial is done. If it isn't, there is no seed spawn.
+    int tutorialDone = SettingsManager::getIntSetting( "tutorialDone", 0 );
+    File *outputMapFileRaw = NULL;
+    if( seed == "" || tutorialDone == 0 ) { // if there's no seed, or it's a tutorial, there's no repeatability.
         outputMapID = nextID;
-    }
-    if( outputMapID + 1 > nextID ) {
-        nextID = outputMapID + 1;
-        nextFile->writeToFile( nextID );
-    }
+        do {
+	    // Differentiate between maps generated from random births and tutorial lives.
+	    if( outputMapFileRaw != NULL) {
+		delete outputMapFileRaw;
+		outputMapFileRaw = NULL;
+	    }
+            char *name = autoSprintf( "%s_%d.txt", tutorialDone ? "Auto" : "Tutorial", outputMapID );
+            outputMapFileRaw = sceneDir.getChildFile( name );
+            outputMapID++;
+            delete [] name;
+        } while ( outputMapFileRaw->exists() ); // Keep incrementing until we know we're not using an existing file.
+
+        nextID = outputMapID;
+        nextFile->writeToFile( nextID ); // Save the number so we don't have to try as many next time.
+    } else {
+        std::string safe_seed = url_encode(seed); // Lots of characters are allowed in seeds that are not allowed in filenames.
+        char *name = autoSprintf( "Seed_%s.txt", safe_seed.c_str() ); // URL Encoded strings could be turned back into the original.
+        outputMapFileRaw = sceneDir.getChildFile( name );
+        delete [] name;
+        }
     
-    char *name = autoSprintf( "%d.txt", outputMapID );
-    File *outputMapFileRaw = sceneDir.getChildFile( name );
-    delete [] name;
     
     if( !outputMapFileRaw->exists() ) {
         outputMapFile = fopen( outputMapFileRaw->getFullFileName(), "ab" );
         outputMapFile_w = SettingsManager::getIntSetting( "outputMapMapSizeX", 400 );
         outputMapFile_h = SettingsManager::getIntSetting( "outputMapMapSizeY", 400 );
-        outputMapFile_oX = SettingsManager::getIntSetting( "outputMapInitCenterX", 200 );
-        outputMapFile_oY = SettingsManager::getIntSetting( "outputMapInitCenterY", 200 );
+        outputMapFile_oX = SettingsManager::getIntSetting( "outputMapInitCenterX", int(outputMapFile_w / 2) );
+        outputMapFile_oY = SettingsManager::getIntSetting( "outputMapInitCenterY", int(outputMapFile_h / 2) );
         if( outputMapFile_w > 800 ) outputMapFile_w = 800;
         if( outputMapFile_h > 800 ) outputMapFile_h = 800;
         if( outputMapFile_oX >= outputMapFile_w || outputMapFile_w < 0 ) outputMapFile_oX = int(outputMapFile_w / 2);
@@ -2550,6 +2652,14 @@ static void initOutputMap() {
         
         }
     }
+}
+
+static void clearOutputMap() {
+    if( outputMapFile != NULL ) {
+        fclose( outputMapFile );
+        outputMapFile = NULL;
+        }
+    outputMapSavedPos.deleteAll();
 }
 
 
@@ -11710,6 +11820,7 @@ void LivingLifePage::handleOurDeath( char inDisconnect ) {
     // so sound tails are not still playing when we we get reborn
     fadeSoundSprites( 0.1 );
     setSoundLoudness( 0 );
+    clearOutputMap();
     }
 
 
@@ -14698,53 +14809,9 @@ void LivingLifePage::step() {
             char *outMessage;
 
             char *tempEmail;
-            
-            if( strlen( userEmail ) > 0 ) {
-                std::string seededEmail = std::string( userEmail );
 
-				// If user doesn't have a seed or targetFamily in their email field
-				if( seededEmail.find('|') == std::string::npos &&
-                    seededEmail.find(':') == std::string::npos ) {
-                    if( useSpawnSeed ) {
-                        std::string seedList = SettingsManager::getSettingContents( "spawnSeed", "" );
-                        std::string seed = "";
-                        if( seedList == "" ) {
-                            seed = "";
-                        } else if( seedList.find('\n') == std::string::npos ) {
-                            seed = seedList;
-                        } else if( seedList.find('\n') != std::string::npos ) {
-                            seed = seedList.substr( 0, seedList.find('\n') );
-                        }
+            tempEmail = stringDuplicate( getSeededEmail().c_str() );
 
-                        // And if the user has a seed set in settings
-                        if( seed != "" ) {
-                            // Add seed delim and then seed
-                            seededEmail += '|';
-                            seededEmail += seed;
-                            }
-                        }
-                    // Only if a seed is not specified we'd use a targetFamily
-                    else if( seededEmail.find(':') == std::string::npos && useTargetFamily ) {
-                        char *targetFamilyChars = SettingsManager::getSettingContents( "targetFamily", "" );
-                        std::string targetFamily( targetFamilyChars );
-                        delete [] targetFamilyChars;
-                        
-                        if( targetFamily != "" ) {
-                            seededEmail += ':';
-                            seededEmail += targetFamily;
-                            }
-                        }
-					}
-
-                tempEmail = stringDuplicate( seededEmail.c_str() );
-                }
-            else {
-                // a blank email
-                // this will cause LOGIN message to have one less token
-                
-                // stick a place-holder in there instead
-                tempEmail = stringDuplicate( "blank_email" );
-                }
             
             const char *loginWord = "LOGIN";
             
