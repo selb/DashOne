@@ -73,6 +73,21 @@ static SimpleVector<TapoutRecord> tapoutRecords;
 static int maxFoodValue = 0;
 
 
+// Hack to make the game more tolerant to new lines in object text files
+// Hetuw mod is not included in autoupdate
+// No one likes to redownload everytime a new property is added
+template <class ... Args>
+static int sscanf2( int *increment, char **ss, const char *format, Args ... args ) {
+    int numRead = 0;
+    do {
+        numRead = sscanf( ss[*increment], format, args ... );
+        *increment = *increment + 1;
+    } while( numRead == 0 );
+    *increment = *increment - 1;
+    return numRead;
+}
+
+
 
 
 typedef struct GlobalTrigger {
@@ -996,7 +1011,7 @@ float initObjectBankStep() {
                 int next = 0;
                 
                 r->id = 0;
-                sscanf( lines[next], "id=%d", 
+                sscanf2( &next, lines, "id=%d", 
                         &( r->id ) );
                 
                 if( r->id > maxID ) {
@@ -1061,7 +1076,7 @@ float initObjectBankStep() {
                 next++;
                             
                 int contRead = 0;                            
-                sscanf( lines[next], "containable=%d", 
+                sscanf2( &next, lines, "containable=%d", 
                         &( contRead ) );
                             
                 r->containable = contRead;
@@ -1071,7 +1086,8 @@ float initObjectBankStep() {
                 r->containSize = 1;
                 r->vertContainRotationOffset = 0;
                 
-                sscanf( lines[next], "containSize=%f,vertSlotRot=%lf", 
+                
+                sscanf2( &next, lines, "containSize=%f,vertSlotRot=%lf", 
                         &( r->containSize ),
                         &( r->vertContainRotationOffset ) );
                             
@@ -1079,7 +1095,7 @@ float initObjectBankStep() {
                             
                 int permRead = 0;                 
                 r->minPickupAge = 3;
-                sscanf( lines[next], "permanent=%d,minPickupAge=%d", 
+                sscanf2( &next, lines, "permanent=%d,minPickupAge=%d", 
                         &( permRead ),
                         &( r->minPickupAge ) );
                             
@@ -1094,7 +1110,7 @@ float initObjectBankStep() {
                 if( strstr( lines[next], "noFlip=" ) != NULL ) {
                     int noFlipRead = 0;
                     
-                    sscanf( lines[next], "noFlip=%d", 
+                    sscanf2( &next, lines, "noFlip=%d", 
                         &( noFlipRead ) );
                             
                     r->noFlip = noFlipRead;
@@ -1107,7 +1123,7 @@ float initObjectBankStep() {
                 if( strstr( lines[next], "sideAccess=" ) != NULL ) {
                     int sideAccessRead = 0;
                     
-                    sscanf( lines[next], "sideAccess=%d", 
+                    sscanf2( &next, lines, "sideAccess=%d", 
                         &( sideAccessRead ) );
                             
                     r->sideAccess = sideAccessRead;
@@ -1119,7 +1135,7 @@ float initObjectBankStep() {
 
 
                 int heldInHandRead = 0;                            
-                sscanf( lines[next], "heldInHand=%d", 
+                sscanf2( &next, lines, "heldInHand=%d", 
                         &( heldInHandRead ) );
                           
                 r->heldInHand = false;
@@ -1142,7 +1158,7 @@ float initObjectBankStep() {
                 
                 int drawBehindPlayerRead = 0;
                 
-                sscanf( lines[next], 
+                sscanf2( &next, lines, 
                         "blocksWalking=%d,"
                         "leftBlockingRadius=%d,rightBlockingRadius=%d,"
                         "drawBehindPlayer=%d",
@@ -1180,7 +1196,7 @@ float initObjectBankStep() {
                 
                 r->mapChance = 0;      
                 char biomeString[200];
-                int numRead = sscanf( lines[next], 
+                int numRead = sscanf2( &next, lines, 
                                       "mapChance=%f#biomes_%199s", 
                                       &( r->mapChance ), biomeString );
                 
@@ -1189,7 +1205,7 @@ float initObjectBankStep() {
                     biomeString[0] = '0';
                     biomeString[1] = '\0';
                     
-                    sscanf( lines[next], "mapChance=%f", &( r->mapChance ) );
+                    sscanf2( &next, lines, "mapChance=%f", &( r->mapChance ) );
                 
                     // NOTE:  I've avoided too many of these format
                     // bandaids, and forced whole-folder file rewrites 
@@ -1204,7 +1220,7 @@ float initObjectBankStep() {
 
 
                 r->heatValue = 0;                            
-                sscanf( lines[next], "heatValue=%d", 
+                sscanf2( &next, lines, "heatValue=%d", 
                         &( r->heatValue ) );
                             
                 next++;
@@ -1212,7 +1228,7 @@ float initObjectBankStep() {
                             
 
                 r->rValue = 0;                            
-                sscanf( lines[next], "rValue=%f", 
+                sscanf2( &next, lines, "rValue=%f", 
                         &( r->rValue ) );
                             
                 next++;
@@ -1221,7 +1237,7 @@ float initObjectBankStep() {
 
                 int personRead = 0;                            
                 int noSpawnRead = 0;
-                sscanf( lines[next], "person=%d,noSpawn=%d", 
+                sscanf2( &next, lines, "person=%d,noSpawn=%d", 
                         &personRead, &noSpawnRead );
                             
                 r->person = ( personRead > 0 );
@@ -1234,7 +1250,7 @@ float initObjectBankStep() {
 
 
                 int maleRead = 0;                            
-                sscanf( lines[next], "male=%d", 
+                sscanf2( &next, lines, "male=%d", 
                         &( maleRead ) );
                     
                 r->male = maleRead;
@@ -1243,7 +1259,7 @@ float initObjectBankStep() {
 
 
                 int deathMarkerRead = 0;     
-                sscanf( lines[next], "deathMarker=%d", 
+                sscanf2( &next, lines, "deathMarker=%d", 
                         &( deathMarkerRead ) );
                     
                 r->deathMarker = deathMarkerRead;
@@ -1266,7 +1282,7 @@ float initObjectBankStep() {
                     // home marker flag present
                     
                     int homeMarkerRead = 0;
-                    sscanf( lines[next], "homeMarker=%d", &( homeMarkerRead ) );
+                    sscanf2( &next, lines, "homeMarker=%d", &( homeMarkerRead ) );
                     
                     r->homeMarker = homeMarkerRead;
                     
@@ -1281,7 +1297,7 @@ float initObjectBankStep() {
                     // floor flag present
                     
                     int floorRead = 0;
-                    sscanf( lines[next], "floor=%d", &( floorRead ) );
+                    sscanf2( &next, lines, "floor=%d", &( floorRead ) );
                     
                     r->floor = floorRead;
                     
@@ -1295,7 +1311,7 @@ float initObjectBankStep() {
                     // floorHugging flag present
                     
                     int hugRead = 0;
-                    sscanf( lines[next], "floorHugging=%d", &( hugRead ) );
+                    sscanf2( &next, lines, "floorHugging=%d", &( hugRead ) );
                     
                     r->floorHugging = hugRead;
                     
@@ -1309,7 +1325,7 @@ float initObjectBankStep() {
                     // floorHugging flag present
                     
                     int wallLayerRead = 0;
-                    sscanf( lines[next], "wallLayer=%d", &( wallLayerRead ) );
+                    sscanf2( &next, lines, "wallLayer=%d", &( wallLayerRead ) );
                     
                     r->wallLayer = wallLayerRead;
                     
@@ -1322,7 +1338,7 @@ float initObjectBankStep() {
                     // floorHugging flag present
                     
                     int frontWallRead = 0;
-                    sscanf( lines[next], "frontWall=%d", &( frontWallRead ) );
+                    sscanf2( &next, lines, "frontWall=%d", &( frontWallRead ) );
                     
                     r->frontWall = frontWallRead;
                     
@@ -1333,7 +1349,7 @@ float initObjectBankStep() {
                 setupWall( r );
 
                             
-                sscanf( lines[next], "foodValue=%d", 
+                sscanf2( &next, lines, "foodValue=%d", 
                         &( r->foodValue ) );
                 
                 if( r->foodValue > maxFoodValue ) {
@@ -1348,7 +1364,7 @@ float initObjectBankStep() {
                             
                             
                             
-                sscanf( lines[next], "speedMult=%f", 
+                sscanf2( &next, lines, "speedMult=%f", 
                         &( r->speedMult ) );
                             
                 next++;
@@ -1358,7 +1374,7 @@ float initObjectBankStep() {
                 r->heldOffset.x = 0;
                 r->heldOffset.y = 0;
                             
-                sscanf( lines[next], "heldOffset=%lf,%lf", 
+                sscanf2( &next, lines, "heldOffset=%lf,%lf", 
                         &( r->heldOffset.x ),
                         &( r->heldOffset.y ) );
                             
@@ -1368,7 +1384,7 @@ float initObjectBankStep() {
 
                 r->clothing = 'n';
                             
-                sscanf( lines[next], "clothing=%c", 
+                sscanf2( &next, lines, "clothing=%c", 
                         &( r->clothing ));
                             
                 next++;
@@ -1378,7 +1394,7 @@ float initObjectBankStep() {
                 r->clothingOffset.x = 0;
                 r->clothingOffset.y = 0;
                             
-                sscanf( lines[next], "clothingOffset=%lf,%lf", 
+                sscanf2( &next, lines, "clothingOffset=%lf,%lf", 
                         &( r->clothingOffset.x ),
                         &( r->clothingOffset.y ) );
                             
@@ -1386,7 +1402,7 @@ float initObjectBankStep() {
                             
                     
                 r->deadlyDistance = 0;
-                sscanf( lines[next], "deadlyDistance=%d", 
+                sscanf2( &next, lines, "deadlyDistance=%d", 
                         &( r->deadlyDistance ) );
                             
                 next++;
@@ -1398,7 +1414,7 @@ float initObjectBankStep() {
                             "useDistance=" ) != NULL ) {
                     // use distance present
                     
-                    sscanf( lines[next], "useDistance=%d", 
+                    sscanf2( &next, lines, "useDistance=%d", 
                             &( r->useDistance ) );
                     
                     next++;
@@ -1438,7 +1454,7 @@ float initObjectBankStep() {
                     // flag present
                     
                     int flagRead = 0;                            
-                    sscanf( lines[next], "creationSoundInitialOnly=%d", 
+                    sscanf2( &next, lines, "creationSoundInitialOnly=%d", 
                             &( flagRead ) );
                     
                     r->creationSoundInitialOnly = flagRead;
@@ -1454,7 +1470,7 @@ float initObjectBankStep() {
                     // flag present
                     
                     int flagRead = 0;                            
-                    sscanf( lines[next], "creationSoundForce=%d", 
+                    sscanf2( &next, lines, "creationSoundForce=%d", 
                             &( flagRead ) );
                     
                     r->creationSoundForce = flagRead;
@@ -1471,12 +1487,12 @@ float initObjectBankStep() {
                 
                 
                 if( strstr( lines[next], "#" ) != NULL ) {
-                    sscanf( lines[next], "numSlots=%d#timeStretch=%f", 
+                    sscanf2( &next, lines, "numSlots=%d#timeStretch=%f", 
                             &( r->numSlots ),
                             &( r->slotTimeStretch ) );
                     }
                 else {
-                    sscanf( lines[next], "numSlots=%d", 
+                    sscanf2( &next, lines, "numSlots=%d", 
                             &( r->numSlots ) );
                     }
                 
@@ -1484,7 +1500,7 @@ float initObjectBankStep() {
                 next++;
 
                 r->slotSize = 1;
-                sscanf( lines[next], "slotSize=%f", 
+                sscanf2( &next, lines, "slotSize=%f", 
                         &( r->slotSize ) );
                             
                 next++;
@@ -1495,7 +1511,7 @@ float initObjectBankStep() {
                     // flag present
                     
                     int flagRead = 0;                            
-                    sscanf( lines[next], "slotsLocked=%d", 
+                    sscanf2( &next, lines, "slotsLocked=%d", 
                             &( flagRead ) );
                     
                     r->slotsLocked = flagRead;
@@ -1509,7 +1525,7 @@ float initObjectBankStep() {
                     // flag present
                     
                     int flagRead = 0;                            
-                    sscanf( lines[next], "slotsNoSwap=%d", 
+                    sscanf2( &next, lines, "slotsNoSwap=%d", 
                             &( flagRead ) );
                     
                     r->slotsNoSwap = flagRead;
@@ -1538,7 +1554,7 @@ float initObjectBankStep() {
                             
 
                 r->numSprites = 0;
-                sscanf( lines[next], "numSprites=%d", 
+                sscanf2( &next, lines, "numSprites=%d", 
                         &( r->numSprites ) );
                             
                 next++;
@@ -1630,18 +1646,18 @@ float initObjectBankStep() {
                 
 
                 for( int i=0; i< r->numSprites; i++ ) {
-                    sscanf( lines[next], "spriteID=%d", 
+                    sscanf2( &next, lines, "spriteID=%d", 
                             &( r->sprites[i] ) );
                                 
                     next++;
                                 
-                    sscanf( lines[next], "pos=%lf,%lf", 
+                    sscanf2( &next, lines, "pos=%lf,%lf", 
                             &( r->spritePos[i].x ),
                             &( r->spritePos[i].y ) );
                                 
                     next++;
                                 
-                    sscanf( lines[next], "rot=%lf", 
+                    sscanf2( &next, lines, "rot=%lf", 
                             &( r->spriteRot[i] ) );
                                 
                     next++;
@@ -1649,14 +1665,14 @@ float initObjectBankStep() {
                         
                     int flipRead = 0;
                                 
-                    sscanf( lines[next], "hFlip=%d", &flipRead );
+                    sscanf2( &next, lines, "hFlip=%d", &flipRead );
                                 
                     r->spriteHFlip[i] = flipRead;
                                 
                     next++;
 
 
-                    sscanf( lines[next], "color=%f,%f,%f", 
+                    sscanf2( &next, lines, "color=%f,%f,%f", 
                             &( r->spriteColor[i].r ),
                             &( r->spriteColor[i].g ),
                             &( r->spriteColor[i].b ) );
@@ -1664,14 +1680,14 @@ float initObjectBankStep() {
                     next++;
 
 
-                    sscanf( lines[next], "ageRange=%lf,%lf", 
+                    sscanf2( &next, lines, "ageRange=%lf,%lf", 
                             &( r->spriteAgeStart[i] ),
                             &( r->spriteAgeEnd[i] ) );
                                 
                     next++;
                         
 
-                    sscanf( lines[next], "parent=%d", 
+                    sscanf2( &next, lines, "parent=%d", 
                             &( r->spriteParent[i] ) );
                         
                     next++;
@@ -1681,7 +1697,7 @@ float initObjectBankStep() {
                     int invisWornRead = 0;
                     int behindSlotsRead = 0;
                     
-                    sscanf( lines[next], 
+                    sscanf2( &next, lines, 
                             "invisHolding=%d,invisWorn=%d,behindSlots=%d", 
                             &invisRead, &invisWornRead,
                             &behindSlotsRead );
@@ -1694,7 +1710,7 @@ float initObjectBankStep() {
                     
                     if( strstr( lines[next], "invisCont=" ) != NULL ) {
                         invisRead = 0;
-                        sscanf( lines[next], "invisCont=%d", &invisRead );
+                        sscanf2( &next, lines, "invisCont=%d", &invisRead );
                         
                         r->spriteInvisibleWhenContained[i] = invisRead;
                         next++;
@@ -1764,7 +1780,7 @@ float initObjectBankStep() {
                 if( next < numLines ) {
                     // info about num uses and vanish/appear sprites
                     
-                    sscanf( lines[next], "numUses=%d,%f", 
+                    sscanf2( &next, lines, "numUses=%d,%f", 
                             &( r->numUses ),
                             &( r->useChance ) );
                             
@@ -1788,7 +1804,7 @@ float initObjectBankStep() {
                     }
                 
                 if( next < numLines ) {
-                    sscanf( lines[next], "pixHeight=%d", 
+                    sscanf2( &next, lines, "pixHeight=%d", 
                             &( r->cachedHeight ) );
                     next++;
                     }       
