@@ -996,6 +996,8 @@ class LivingLifePage : public GamePage, public ActionListener {
 
         double computePathSpeedMod( LiveObject *inObject, int inPathLength );
         
+        bool sameRoadClass( int inFloorA, int inFloorB );
+        
         // check if same road is present when we take a step in x or y
         char isSameRoad( int inFloor, GridPos inFloorPos, int inDX, int inDY );
         
