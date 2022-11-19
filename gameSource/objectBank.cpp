@@ -1310,7 +1310,7 @@ float initObjectBankStep() {
                     // partialFloor flag present
                     
                     int read = 0;
-                    sscanf( lines[next], "partialFloor=%d", &( read ) );
+                    sscanf2( &next, lines, "partialFloor=%d", &( read ) );
                     
                     r->noCover = read;
                     
@@ -1524,7 +1524,7 @@ float initObjectBankStep() {
                     // flag present
                     
                     int flagRead = 0;                            
-                    sscanf( lines[next], "slotStyle=%d", 
+                    sscanf2( &next, lines, "slotStyle=%d", 
                             &( flagRead ) );
                     
                     r->slotStyle = flagRead;
