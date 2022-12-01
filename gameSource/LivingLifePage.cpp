@@ -6963,22 +6963,6 @@ char whiteBorder = true;
 
 char LivingLifePage::isCoveredByFloor( int inTileIndex ) {
     int i = inTileIndex;
-    if( i < 0 || i >= mMapD * mMapD ) return false;
-    
-    int fID = mMapFloors[ i ];
-    int maxObjectID = getMaxObjectID();
-    
-    if( fID > 0 && 
-        fID <= maxObjectID &&
-        ! getObject( fID )->noCover ) {
-        return true;
-        }
-    return false;
-    }
-    
-    
-char LivingLifePage::isCoveredByFloor( int inTileIndex ) {
-    int i = inTileIndex;
 
     int fID = mMapFloors[ i ];
 
