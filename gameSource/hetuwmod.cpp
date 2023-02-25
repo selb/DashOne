@@ -281,6 +281,7 @@ std::string HetuwMod::hexRaceColor_brown = "a85e3d";
 std::string HetuwMod::hexRaceColor_ginger = "f2cac1";
 std::string HetuwMod::hexRaceColor_white = "ddaf93";
 std::string HetuwMod::hexRaceColor_black = "3f2a2a";
+std::string HetuwMod::hexRaceColor_asian = "ffc88f";
 float HetuwMod::raceColor_brown[] = {0.658824, 0.372549, 0.243137};
 float HetuwMod::raceColor_ginger[] = {0.952941, 0.796078, 0.756863};
 float HetuwMod::raceColor_white[] = {0.866667, 0.690196, 0.576471};
@@ -4119,6 +4120,7 @@ std::string HetuwMod::getRaceName(ObjectRecord *obj) {
 	if (Phex::strEquals(hexColor, hexRaceColor_ginger)) return "GINGER";
 	if (Phex::strEquals(hexColor, hexRaceColor_white)) return "WHITE";
 	if (Phex::strEquals(hexColor, hexRaceColor_black)) return "BLACK";
+	if (Phex::strEquals(hexColor, hexRaceColor_asian)) return "ASIAN";
 	return "UNKOWN";
 }
 

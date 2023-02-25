@@ -389,6 +389,7 @@ public:
 	static std::string hexRaceColor_ginger;
 	static std::string hexRaceColor_white;
 	static std::string hexRaceColor_black;
+	static std::string hexRaceColor_asian;
 	static float raceColor_brown[];
 	static float raceColor_ginger[];
 	static float raceColor_white[];
