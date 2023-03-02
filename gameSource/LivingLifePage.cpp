@@ -81,6 +81,7 @@ extern Font *oldMainFont;
 extern Font *numbersFontFixed;
 extern Font *mainFontReview;
 extern Font *handwritingFont;
+extern Font *tinyHandwritingFont;
 extern Font *pencilFont;
 extern Font *pencilErasedFont;
 
@@ -4116,7 +4117,8 @@ void LivingLifePage::drawChalkBackgroundString( doublePair inPos,
                                                 LiveObject *inSpeaker,
                                                 int inForceMinChalkBlots,
                                                 FloatColor *inForceBlotColor,
-                                                FloatColor *inForceTextColor ) {
+                                                FloatColor *inForceTextColor,
+                                                bool tinyStyle ) {
     
     char *stringUpper = stringToUpperCase( inString );
 
@@ -4129,8 +4131,17 @@ void LivingLifePage::drawChalkBackgroundString( doublePair inPos,
         delete lines;
         return;
         }
+		
+	float scale = 1.0;
+	if(tinyStyle) scale = 0.5;
 
-    double lineSpacing = handwritingFont->getFontHeight() / 2 + 5;
+    double lineSpacing = 0.0;
+    if( !tinyStyle ) {
+        lineSpacing = handwritingFont->getFontHeight() / 2 + ( 5 * scale );
+        }
+    else {
+        lineSpacing = tinyHandwritingFont->getFontHeight() / 2 + ( 5 * scale );
+        }
     
     double firstLineY =  inPos.y + ( lines->size() - 1 ) * lineSpacing;
     
@@ -4212,15 +4223,21 @@ void LivingLifePage::drawChalkBackgroundString( doublePair inPos,
         char *line = lines->getElementDirect( i );
         
 
-        double length = handwritingFont->measureString( line );
+        double length = 0.0;
+        if( !tinyStyle ) {
+            length = handwritingFont->measureString( line );
+            } 
+        else {
+            length = tinyHandwritingFont->measureString( line );
+            }
             
-        int numBlots = lrint( 0.25 + length / 20 ) + 1;
+        int numBlots = lrint( 0.25 + length / 20 / scale ) + 1;
         
         if( inForceMinChalkBlots != -1 && numBlots < inForceMinChalkBlots ) {
             numBlots = inForceMinChalkBlots;
             }
     
-        doublePair blotSpacing = { 20, 0 };
+        doublePair blotSpacing = { 20 * scale, 0 };
     
         doublePair firstBlot = 
             { inPos.x, firstLineY - i * lineSpacing};
@@ -4241,17 +4258,17 @@ void LivingLifePage::drawChalkBackgroundString( doublePair inPos,
             doublePair blotPos = add( firstBlot, mult( blotSpacing, b ) );
         
             double rot = blotRandSource.getRandomDouble();
-            drawSprite( mChalkBlotSprite, blotPos, 1.0, rot );
-            drawSprite( mChalkBlotSprite, blotPos, 1.0, rot );
+            drawSprite( mChalkBlotSprite, blotPos, scale, rot );
+            drawSprite( mChalkBlotSprite, blotPos, scale, rot );
             
             // double hit vertically
             blotPos.y += 5;
             rot = blotRandSource.getRandomDouble();
-            drawSprite( mChalkBlotSprite, blotPos, 1.0, rot );
+            drawSprite( mChalkBlotSprite, blotPos, scale, rot );
             
             blotPos.y -= 10;
             rot = blotRandSource.getRandomDouble();
-            drawSprite( mChalkBlotSprite, blotPos, 1.0, rot );
+            drawSprite( mChalkBlotSprite, blotPos, scale, rot );
             }
         }
     
@@ -4289,7 +4306,12 @@ void LivingLifePage::drawChalkBackgroundString( doublePair inPos,
         doublePair lineStart = 
             { inPos.x, firstLineY - i * lineSpacing};
         
-        handwritingFont->drawString( line, lineStart, alignLeft );
+        if( !tinyStyle ) {
+            handwritingFont->drawString( line, lineStart, alignLeft );
+            }
+        else {
+            tinyHandwritingFont->drawString( line, lineStart, alignLeft );
+            }
         delete [] line;
         }
 
@@ -11086,6 +11108,13 @@ void LivingLifePage::draw( doublePair inViewCenter,
                                        description );
                     desToDelete = des;
                     }
+                else if( ourLiveObject->holdingID > 0 ) {
+                    des = autoSprintf( "%s %s",
+                                       translate( "youHolding" ),
+                                       getObject( ourLiveObject->holdingID )->
+                                       description );
+                    desToDelete = des;
+                    }
                 else {
                     des = (char*)translate( "you" );
                     
@@ -11532,9 +11561,18 @@ void LivingLifePage::draw( doublePair inViewCenter,
                     }
                 }
             
-            
-            setDrawColor( 0, 0, 0, 1 );
-            pencilFont->drawString( stringUpper, tipPos, alignCenter );
+            // This was the main description drawn on guiPanel
+            // setDrawColor( 0, 0, 0, 1 );
+            // pencilFont->drawString( stringUpper, pos, alignCenter );
+			
+			// Moved to be cursor-tips
+			if( mCurMouseOverID != 0 ) {
+				FloatColor bgColor = { 0.05, 0.05, 0.05, 1.0 };
+				FloatColor txtColor = { 1, 1, 1, 1 };
+				drawChalkBackgroundString( 
+					{lastMouseX + 16, lastMouseY - 16}, 
+					stringUpper, 1.0, 100000.0, NULL, -1, &bgColor, &txtColor, true );
+				}
             
             delete [] stringUpper;
             }
@@ -21542,6 +21580,15 @@ void LivingLifePage::step() {
             
             setViewCenterPosition( lastScreenViewCenter.x, 
                                    lastScreenViewCenter.y );
+                                   
+            getLastMouseScreenPos( &lastScreenMouseX, &lastScreenMouseY );
+            screenToWorld( lastScreenMouseX,
+                           lastScreenMouseY,
+                           &lastMouseX,
+                           &lastMouseY );
+                           
+            mLastMouseOverID = mCurMouseOverID;
+            mCurMouseOverID = 0;
             
             }
 
