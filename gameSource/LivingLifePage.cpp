@@ -11239,6 +11239,15 @@ void LivingLifePage::draw( doublePair inViewCenter,
                                        description );
                     desToDelete = des;
                     }
+                else if( ourLiveObject->holdingID > 0 &&
+                    getObject( ourLiveObject->holdingID )->rideable ) {
+                    
+                    des = autoSprintf( "%s %s",
+                                       translate( "youRiding" ),
+                                       getObject( ourLiveObject->holdingID )->
+                                       description );
+                    desToDelete = des;
+                    }
                 else if( ourLiveObject->holdingID > 0 ) {
                     des = autoSprintf( "%s %s",
                                        translate( "youHolding" ),
