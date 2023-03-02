@@ -722,6 +722,8 @@ class LivingLifePage : public GamePage, public ActionListener {
         SpriteHandle mCellFillSprite;
         
         SpriteHandle mHintArrowSprite;
+		SpriteHandle mYumIconSprite;
+		SpriteHandle mMehIconSprite;
         
 
         SpriteHandle mHomeSlipSprite;
