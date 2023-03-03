@@ -722,6 +722,8 @@ class LivingLifePage : public GamePage, public ActionListener {
         SpriteHandle mCellFillSprite;
         
         SpriteHandle mHintArrowSprite;
+		SpriteHandle mYumIconSprite;
+		SpriteHandle mMehIconSprite;
         
 
         SpriteHandle mHomeSlipSprite;
@@ -919,6 +921,9 @@ class LivingLifePage : public GamePage, public ActionListener {
         
         
         int mYumBonus;
+        int mOldYumBonusValue;
+		bool mFirstYumEaten;
+		float mYumIncrementFade;
         SimpleVector<int> mOldYumBonus;
         SimpleVector<float> mOldYumBonusFades;
 
@@ -1025,7 +1030,8 @@ class LivingLifePage : public GamePage, public ActionListener {
                                         LiveObject *inSpeaker = NULL,
                                         int inForceMinChalkBlots = -1,
                                         FloatColor *inForceBlotColor = NULL,
-                                        FloatColor *inForceTextColor = NULL );
+                                        FloatColor *inForceTextColor = NULL,
+                                        bool tinyStyle = false );
         
         protected: // hetuw mod
         
