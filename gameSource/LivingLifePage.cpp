@@ -4127,7 +4127,8 @@ void LivingLifePage::drawChalkBackgroundString( doublePair inPos,
                                                 int inForceMinChalkBlots,
                                                 FloatColor *inForceBlotColor,
                                                 FloatColor *inForceTextColor,
-                                                bool tinyStyle ) {
+                                                bool tinyStyle,
+                                                bool scaleWithGui ) {
     
     char *stringUpper = stringToUpperCase( inString );
 
@@ -4143,14 +4144,9 @@ void LivingLifePage::drawChalkBackgroundString( doublePair inPos,
 		
 	float scale = 1.0;
 	if(tinyStyle) scale = 0.5;
+	if(scaleWithGui) scale = scale * HetuwMod::guiScale;
 
-    double lineSpacing = 0.0;
-    if( !tinyStyle ) {
-        lineSpacing = handwritingFont->getFontHeight() / 2 + ( 5 * scale );
-        }
-    else {
-        lineSpacing = tinyHandwritingFont->getFontHeight() / 2 + ( 5 * scale );
-        }
+    double lineSpacing = handwritingFont->getFontHeight() / 2 + ( 5 * scale );
     
     double firstLineY =  inPos.y + ( lines->size() - 1 ) * lineSpacing;
     
@@ -4232,13 +4228,7 @@ void LivingLifePage::drawChalkBackgroundString( doublePair inPos,
         char *line = lines->getElementDirect( i );
         
 
-        double length = 0.0;
-        if( !tinyStyle ) {
-            length = handwritingFont->measureString( line );
-            } 
-        else {
-            length = tinyHandwritingFont->measureString( line );
-            }
+        double length = handwritingFont->measureString( line ) * scale;
             
         int numBlots = lrint( 0.25 + length / 20 / scale ) + 1;
         
@@ -4315,12 +4305,7 @@ void LivingLifePage::drawChalkBackgroundString( doublePair inPos,
         doublePair lineStart = 
             { inPos.x, firstLineY - i * lineSpacing};
         
-        if( !tinyStyle ) {
-            handwritingFont->drawString( line, lineStart, alignLeft );
-            }
-        else {
-            tinyHandwritingFont->drawString( line, lineStart, alignLeft );
-            }
+        hetuwDrawScaledHandwritingFont( line, lineStart, scale, alignLeft );
         delete [] line;
         }
 
@@ -11711,7 +11696,7 @@ void LivingLifePage::draw( doublePair inViewCenter,
 				FloatColor txtColor = { 1, 1, 1, 1 };
 				drawChalkBackgroundString( 
 					{lastMouseX + 16, lastMouseY - 16}, 
-					stringUpper, 1.0, 100000.0, NULL, -1, &bgColor, &txtColor, true );
+					stringUpper, 1.0, 100000.0, NULL, -1, &bgColor, &txtColor, true, true );
 				}
             
             delete [] stringUpper;

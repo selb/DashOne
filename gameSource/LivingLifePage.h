@@ -1031,7 +1031,8 @@ class LivingLifePage : public GamePage, public ActionListener {
                                         int inForceMinChalkBlots = -1,
                                         FloatColor *inForceBlotColor = NULL,
                                         FloatColor *inForceTextColor = NULL,
-                                        bool tinyStyle = false );
+                                        bool tinyStyle = false,
+                                        bool scaleWithGui = false );
         
         protected: // hetuw mod
         
