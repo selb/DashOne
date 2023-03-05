@@ -4143,7 +4143,7 @@ void LivingLifePage::drawChalkBackgroundString( doublePair inPos,
         }
 		
 	float scale = 1.0;
-	if(tinyStyle) scale = 0.5;
+	if(tinyStyle) scale = 0.75;
 	if(scaleWithGui) scale = scale * HetuwMod::guiScale;
 
     double lineSpacing = handwritingFont->getFontHeight() / 2 + ( 5 * scale );
@@ -11695,7 +11695,7 @@ void LivingLifePage::draw( doublePair inViewCenter,
 				FloatColor bgColor = { 0.05, 0.05, 0.05, 1.0 };
 				FloatColor txtColor = { 1, 1, 1, 1 };
 				drawChalkBackgroundString( 
-					{lastMouseX + 16, lastMouseY - 16}, 
+					{lastMouseX + 22 * HetuwMod::guiScale, lastMouseY - 22 * HetuwMod::guiScale}, 
 					stringUpper, 1.0, 100000.0, NULL, -1, &bgColor, &txtColor, true, true );
 				}
             
