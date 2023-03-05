@@ -2889,6 +2889,19 @@ void HetuwMod::drawHighlightedPlayer() {
 	drawRect( playerNamePos, textWidth/2 + 6*guiScale, 16*guiScale );
 	setDrawColor( playerNameColor[0], playerNameColor[1], playerNameColor[2], 1 );
 	livingLifePage->hetuwDrawScaledHandwritingFont( str, playerNamePos, guiScale, alignCenter );
+    
+	char *relationStr;
+	if( player->relationName != NULL ) {
+		relationStr = player->relationName;
+	} else {
+		relationStr = "NO RELATION";
+	}
+	playerNamePos.y -= 32*guiScale;
+	setDrawColor( 0.0, 0.0, 0.0, 0.8 );
+	textWidth = livingLifePage->hetuwMeasureScaledHandwritingFont( relationStr, guiScale );
+	drawRect( playerNamePos, textWidth/2 + 6*guiScale, 16*guiScale );
+	setDrawColor( playerNameColor[0], playerNameColor[1], playerNameColor[2], 1 );
+	livingLifePage->hetuwDrawScaledHandwritingFont( relationStr, playerNamePos, guiScale, alignCenter );
 }
 
 void HetuwMod::useTileRelativeToMe( int x, int y ) {

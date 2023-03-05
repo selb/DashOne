@@ -24001,8 +24001,6 @@ void LivingLifePage::pointerMove( float inX, float inY ) {
             mCurMouseOverID = - p.hitOtherPersonID;
 			HetuwMod::onPlayerHoverOver(p.hitOtherPersonID);
             mCurMouseOverBiome = -1;
-            
-            overNothing = false;
             }
         }
     
