@@ -11691,13 +11691,14 @@ void LivingLifePage::draw( doublePair inViewCenter,
             // pencilFont->drawString( stringUpper, pos, alignCenter );
 			
 			// Moved to be cursor-tips
-			if( mCurMouseOverID != 0 ) {
-				FloatColor bgColor = { 0.05, 0.05, 0.05, 1.0 };
-				FloatColor txtColor = { 1, 1, 1, 1 };
-				drawChalkBackgroundString( 
-					{lastMouseX + 22 * HetuwMod::guiScale, lastMouseY - 22 * HetuwMod::guiScale}, 
-					stringUpper, 1.0, 100000.0, NULL, -1, &bgColor, &txtColor, true, true );
-				}
+            if( ! mXKeyDown )
+            if( mCurMouseOverID != 0 ) {
+                FloatColor bgColor = { 0.05, 0.05, 0.05, 1.0 };
+                FloatColor txtColor = { 1, 1, 1, 1 };
+                drawChalkBackgroundString( 
+                    {lastMouseX + 22 * HetuwMod::guiScale, lastMouseY - 22 * HetuwMod::guiScale}, 
+                    stringUpper, 1.0, 100000.0, NULL, -1, &bgColor, &txtColor, true, true );
+                }
             
             delete [] stringUpper;
             }
@@ -23551,7 +23552,7 @@ void LivingLifePage::checkForPointerHit( PointerHitRecord *inRecord,
         // don't worry about p->hitOurPlacement when checking them
         // next, people in this row
         // recently dropped babies are in front and tested first
-        if( ! mXKeyDown )
+        // if( ! mXKeyDown ) // hetuw mod disable click through player function - confuses people
         for( int d=0; d<2 && ! p->hit; d++ )
         for( int x=clickDestX+1; x>=clickDestX-1 && ! p->hit; x-- ) {
             float clickOffsetX = ( clickDestX  - x ) * CELL_D + clickExtraX;
@@ -23755,7 +23756,7 @@ void LivingLifePage::checkForPointerHit( PointerHitRecord *inRecord,
 
 
 
-    if( !mXKeyDown )
+    // if( !mXKeyDown ) // hetuw mod disable click through player function - confuses people
     if( p->hit && p->hitAnObject && ! p->hitOtherPerson && ! p->hitSelf ) {
         // hit an object
         
@@ -26211,6 +26212,9 @@ void LivingLifePage::keyDown( unsigned char inASCII ) {
 			setWaiting( false );
 			setSignal( "twinCancel" );
 		}
+        else if( ! mSayField.isFocused() ) {
+            mXKeyDown = true;
+            }
 	}
 	if (!vogMode) {
 		if (Phex::hasFocus && mSayField.isFocused()) mSayField.unfocusAll();
@@ -26315,7 +26319,7 @@ void LivingLifePage::keyDown( unsigned char inASCII ) {
                 setSignal( "twinCancel" );
                 }
             else if( ! mSayField.isFocused() ) {
-                mXKeyDown = false; // hetuw mod disable click through player function - confuses people
+                mXKeyDown = true;
                 }
             break;
         /*
@@ -26996,6 +27000,10 @@ void LivingLifePage::specialKeyDown( int inKeyCode ) {
 
         
 void LivingLifePage::keyUp( unsigned char inASCII ) {
+
+    if (inASCII == 'x' || inASCII == 'X') {
+        mXKeyDown = false;
+        }
 
 	if (HetuwMod::livingLifeKeyUp(inASCII))
 		return;
