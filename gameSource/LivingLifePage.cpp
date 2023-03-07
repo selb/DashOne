@@ -4167,7 +4167,7 @@ void LivingLifePage::drawChalkBackgroundString( doublePair inPos,
     for( int i=0; i<lines->size(); i++ ) {
         char *line = lines->getElementDirect( i );
 
-        double length = handwritingFont->measureString( line );
+        double length = handwritingFont->measureString( line ) * scale;
         if( length > widestLine ) {
             widestLine = length;
             }
