@@ -465,7 +465,7 @@ public:
 	static void gameStep();
 
 	static void livingLifeStep();
-	static void livingLifeDraw();
+	static void livingLifeDraw(float worldMouseX, float worldMouseY);
 	static bool livingLifeKeyDown(unsigned char inASCII);
 	static bool livingLifeKeyUp(unsigned char inASCII);
 	static bool livingLifeSpecialKeyDown(unsigned char inKeyCode);
@@ -619,6 +619,9 @@ public:
 	static bool bDrawYum;
 	static void setYumObjectsColor();
 	static void resetObjectsColor();
+    
+    static void drawTileRect( int x, int y, string color, bool flashing );
+    static bool isHoveringPicker( float x, float y );
 
 	static double *objectDrawScale;
 	static void resetObjectDrawScale();

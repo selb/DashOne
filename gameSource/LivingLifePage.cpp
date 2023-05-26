@@ -181,6 +181,7 @@ static char vogPickerOn = false;
 
 bool LivingLifePage::hetuwIsVogMode() { return vogMode; }
 doublePair LivingLifePage::hetuwGetVogPos() { return vogPos; }
+bool LivingLifePage::lunarIsVogPickerOn() { return vogPickerOn; }
     
 
 extern float musicLoudness;
@@ -203,6 +204,10 @@ static int screenCenterPlayerOffsetX, screenCenterPlayerOffsetY;
 static float lastMouseX = 0;
 static float lastMouseY = 0;
 
+doublePair LivingLifePage::lunarGetLastMousePos() { 
+	doublePair pos = { lastMouseX, lastMouseY };
+    return pos;
+}
 
 // set to true to render for teaser video
 static char teaserVideo = false;
@@ -11773,9 +11778,7 @@ void LivingLifePage::draw( doublePair inViewCenter,
             drawMessage( "bugMessage2", messagePos );
             }
         }
-
-	HetuwMod::livingLifeDraw();
-
+	
 	// minitech
 	float worldMouseX, worldMouseY;
 	getLastMouseScreenPos( &lastScreenMouseX, &lastScreenMouseY );
@@ -11783,6 +11786,7 @@ void LivingLifePage::draw( doublePair inViewCenter,
 				   lastScreenMouseY,
 				   &worldMouseX,
 				   &worldMouseY );
+    HetuwMod::livingLifeDraw(worldMouseX, worldMouseY);
 	minitech::livingLifeDraw(worldMouseX, worldMouseY);
 
     if( vogMode ) {
@@ -27241,15 +27245,15 @@ void LivingLifePage::actionPerformed( GUIComponent *inTarget ) {
         char rightClick;
         int objectID = mObjectPicker.getSelectedObject( &rightClick );
         
-        if( objectID != -1 ) {
-            char *message = autoSprintf( "VOGI %d %d %d#",
-                                         lrint( vogPos.x ), 
-                                         lrint( vogPos.y ), objectID );
+        // if( objectID != -1 ) {
+            // char *message = autoSprintf( "VOGI %d %d %d#",
+                                         // lrint( vogPos.x ), 
+                                         // lrint( vogPos.y ), objectID );
             
-            sendToServerSocket( message );
+            // sendToServerSocket( message );
             
-            delete [] message;
-            }
+            // delete [] message;
+            // }
         }
     }
 

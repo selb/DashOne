@@ -2082,13 +2082,49 @@ void HetuwMod::onJustAteFood(ObjectRecord *food) {
 	}
 }
 
-void HetuwMod::livingLifeDraw() {
+void HetuwMod::drawTileRect( int x, int y, string color, bool flashing ) {
+	doublePair pos = { (double)x, (double)y };
+	pos.x *= CELL_D;
+	pos.y *= CELL_D;
+	float maxAlpha = 0.5;
+	float alpha;
+	if (flashing) {
+		alpha = (stepCount % 40) / 40.0;
+		if (alpha > 0.5) alpha = 1 - alpha;
+		alpha *= maxAlpha;
+	} else {
+		alpha = maxAlpha;
+	}
+	if (color == "red") setDrawColor( 1, 0, 0, alpha );
+	if (color == "green") setDrawColor( 0, 1, 0, alpha );
+	if (color == "blue") setDrawColor( 0, 0, 1, alpha );
+	drawRect( pos, CELL_D/2, CELL_D/2 );
+}
+
+bool HetuwMod::isHoveringPicker( float x, float y ) {
+    if( !livingLifePage->lunarIsVogPickerOn() ) return false;
+    doublePair vogPos = livingLifePage->hetuwGetVogPos();
+    if( abs(x - (vogPos.x * CELL_D + 510)) <= 90 &&
+        abs(y - (vogPos.y * CELL_D + 90 - 85)) <= 245 ) {
+        return true;
+    }
+    return false;
+}
+
+void HetuwMod::livingLifeDraw(float worldMouseX, float worldMouseY) {
 	fromViewToMapCoordsVec = getFromViewToMapCoordsVec();
 
 	if (takingPhoto) return; // dont draw special mod stuff while taking a photo
 
  	ourLiveObject = livingLifePage->getOurLiveObject();
 	if (!ourLiveObject) return;
+    
+    if ( livingLifePage->lunarIsVogPickerOn() && !isHoveringPicker(worldMouseX, worldMouseY) ) {
+        doublePair mousePos = livingLifePage->lunarGetLastMousePos();
+        int mouseX = int(round( mousePos.x / (float)CELL_D ));
+        int mouseY = int(round( mousePos.y / (float)CELL_D ));
+        drawTileRect( mouseX, mouseY, "green", false );
+    }
 
 	if (bDrawGrid) drawGrid();
 	drawAge();
@@ -3753,6 +3789,30 @@ bool HetuwMod::livingLifeSpecialKeyDown(unsigned char inKeyCode) {
 }
 
 bool HetuwMod::livingLifePageMouseDown( float mX, float mY ) {
+    
+    if( livingLifePage->hetuwIsVogMode() && livingLifePage->lunarIsVogPickerOn() && !isHoveringPicker(mX, mY) ) {
+        GridPos pos;
+        pos.x = int(round( mX / (float)CELL_D ));
+        pos.y = int(round( mY / (float)CELL_D ));
+        
+        char rightClick;
+        Picker *mObjectPicker = &(livingLifePage->mObjectPicker);
+        int id = mObjectPicker->getSelectedObject( &rightClick );
+        if( isLastMouseButtonRight() ) id = 1938; // Smooth Ground
+        
+        if( id != -1 ) {
+            char *message = autoSprintf( "VOGI %d %d %d#",
+                                         lrint( pos.x ), 
+                                         lrint( pos.y ), id );
+            livingLifePage->sendToServerSocket( message );
+            delete [] message;
+            mObjectPicker->usePickable( id );
+            return true;
+        }
+        
+        return false;
+    }
+    
 	//printf("hetuw mouse down %f, %f\n", mX, mY);
 	if (bDrawHomeCords) {
 		for (unsigned i=0; i<homePosStack.size(); i++) {

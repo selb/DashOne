@@ -579,6 +579,8 @@ class LivingLifePage : public GamePage, public ActionListener {
 		void hetuwToggleFixCamera();
 		void hetuwSetTakingPhoto(bool takingPhoto);
 		bool hetuwIsVogMode();
+        doublePair lunarGetLastMousePos();
+        bool lunarIsVogPickerOn();
 		doublePair hetuwGetVogPos();
 		char getTransHintable( TransRecord *inTrans ); // hetuw mod - changed from static and made visible to public
 		
@@ -1110,8 +1112,9 @@ class LivingLifePage : public GamePage, public ActionListener {
         char mXKeyDown;
 
         char mPlayerInFlight;
-
+        public: // lunar mod
         Picker mObjectPicker;
+        protected: // lunar mod
 
 
         void pushOldHintArrow( int inIndex );
