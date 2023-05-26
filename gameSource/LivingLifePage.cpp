@@ -26279,6 +26279,7 @@ void LivingLifePage::keyDown( unsigned char inASCII ) {
                     sendToServerSocket( (char*)"VOGX 0 0#" );
                     vogMode = false;
                     if( vogPickerOn ) {
+                        TextField::unfocusAll();
                         removeComponent( &mObjectPicker );
                         mObjectPicker.removeActionListener( this );
                         }
