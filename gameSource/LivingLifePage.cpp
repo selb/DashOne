@@ -26199,7 +26199,10 @@ static char commandTyped( char *inTyped, const char *inCommandTransKey ) {
     }
 
 
-
+extern char upKey;
+extern char leftKey;
+extern char downKey;
+extern char rightKey;
 
 void LivingLifePage::keyDown( unsigned char inASCII ) {
     
@@ -26217,6 +26220,49 @@ void LivingLifePage::keyDown( unsigned char inASCII ) {
             }
         return;
         }
+
+	bool commandKey = isCommandKeyDown();
+	bool shiftKey = isShiftKeyDown();
+    
+    if( vogMode && vogPickerOn ) {
+        //Picker keybinds
+        if( !commandKey && inASCII == 9 ) { // TAB
+            if( TextField::isAnyFocused() ) {
+                TextField::unfocusAll();
+            } else {
+                mObjectPicker.clearSearchField();
+                mObjectPicker.focusSearchField();
+            }
+            return;
+        } else if( commandKey && inASCII == 9 ) { // ctrl + TAB
+            mObjectPicker.setSearchField( "." );
+            TextField::unfocusAll();
+            return;
+        } else if( !TextField::isAnyFocused() && commandKey ) {
+            if( inASCII + 64 == toupper(upKey) ) {
+                mObjectPicker.selectUp();
+            } else if( inASCII + 64 == toupper(downKey) ) {
+                mObjectPicker.selectDown();
+                return;
+            }  else if( inASCII + 64 == toupper(rightKey) ) {
+                mObjectPicker.nextPage();
+            }  else if( inASCII + 64 == toupper(leftKey) ) {
+                mObjectPicker.prevPage();
+            }
+        } else if( !TextField::isAnyFocused() && inASCII == 13 ) {
+            actionPerformed( &mObjectPicker );
+            return;
+        } else if( TextField::isAnyFocused() && inASCII == 13 ) {
+            TextField::unfocusAll();
+            return;
+        }
+    } else if( vogMode && !vogPickerOn ) {
+		if( !commandKey && inASCII == 9 ) { // TAB
+			addComponent( &mObjectPicker );
+			mObjectPicker.addActionListener( this );
+			vogPickerOn = true;
+		}
+    }
 
 	if (inASCII == 'x' || inASCII == 'X') { // hetuw mod - copied and pasted from below in order to allow the cancel of twinning waiting screen
 		if( userTwinCode != NULL &&

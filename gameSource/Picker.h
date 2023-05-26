@@ -44,10 +44,22 @@ class Picker : public PageComponent, ActionListener,
 
         virtual void actionPerformed( GUIComponent *inTarget );
 
-        virtual void keyDown( unsigned char inASCII );
         virtual void specialKeyDown( int inKeyCode );
         
         virtual void setIgnoredKey( unsigned char inASCII );
+        
+        
+        virtual void focusSearchField();
+        
+        virtual void clearSearchField();
+        virtual void setSearchField( const char *inText );
+        virtual void usePickable( int id );
+        
+        virtual void select( int index );
+        virtual void selectUp();
+        virtual void selectDown();
+        virtual void nextPage();
+        virtual void prevPage();
 
         
     protected:
@@ -74,9 +86,9 @@ class Picker : public PageComponent, ActionListener,
         TextButton mDelButton;
         TextButton mDelConfirmButton;
 
-        
+    public:
         TextField mSearchField;
-        
+    protected:
         int mSelectionIndex;
         
         char mSelectionRightClicked;
