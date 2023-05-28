@@ -150,6 +150,7 @@ extern doublePair lastScreenViewCenter;
 doublePair LivingLifePage::hetuwGetLastScreenViewCenter() { return lastScreenViewCenter; }
 doublePair LivingLifePage::minitechGetLastScreenViewCenter() { return lastScreenViewCenter; }
 
+static bool useYumSlipInsteadOfYumBubble = false;
 static int holdingYumOrMeh = 0;
 
 static char shouldMoveCamera = true;
@@ -3193,6 +3194,8 @@ LivingLifePage::LivingLifePage()
         mUsingSteam = true;
         }
         
+    if( mYumIconSprite == NULL || mMehIconSprite == NULL ) useYumSlipInsteadOfYumBubble = true;
+        
     outputMapMode = SettingsManager::getIntSetting( "outputMapOn", 0 );
     if( outputMapMode > 1 || outputMapMode < 0 ) outputMapMode = 0;
 
@@ -6060,7 +6063,7 @@ ObjectAnimPack LivingLifePage::drawLiveObject(
         inSpeakersPos->push_back( pos );
         }
 
-    if( inObj->id == ourID ) {
+    if( !useYumSlipInsteadOfYumBubble && inObj->id == ourID ) {
         setClothingHighlightFades( NULL );
         
         // yum slip
@@ -10514,7 +10517,8 @@ void LivingLifePage::draw( doublePair inViewCenter,
 
         if( ! equal( mYumSlipPosOffset[i], mYumSlipHideOffset[i] ) ) {
 			
-            mYumSlipPosOffset[i] = mYumSlipHideOffset[i];
+            if( !useYumSlipInsteadOfYumBubble )
+                mYumSlipPosOffset[i] = mYumSlipHideOffset[i];
 			
             doublePair slipPos = 
                 add( mYumSlipPosOffset[i], lastScreenViewCenter );
@@ -10962,9 +10966,19 @@ void LivingLifePage::draw( doublePair inViewCenter,
                               lastScreenViewCenter.y - 340 - HetuwMod::panelOffsetY };
         
         setDrawColor( 0, 0, 0, 1 );
+        if( useYumSlipInsteadOfYumBubble && mYumBonus > 0 ) { 
+        
+            yumPos = { lastScreenViewCenter.x - 480, 
+                       lastScreenViewCenter.y - 313 - HetuwMod::panelOffsetY };
+        
+            char *yumString = autoSprintf( "+%d", mYumBonus );
+            pencilFont->drawString( yumString, yumPos, alignLeft );
+            delete [] yumString;
+            }
+        
         // Food bar is not loaded if the game just has just reconnected
         // Draw the bonus part of the food bar after the food bar is loaded
-        if( ourLiveObject->maxFoodCapacity > 0 ) {
+        if( !useYumSlipInsteadOfYumBubble && ourLiveObject->maxFoodCapacity > 0 ) {
             
             // 2HOL food UI - Yum Bonus label
             char *yumString3 = autoSprintf( "BONUS:" );
