@@ -11348,12 +11348,12 @@ void LivingLifePage::draw( doublePair inViewCenter,
                     
                     desToDelete = des;
                     }
-				// if ( otherObj != NULL ) { // hetuw mod
-					// char ageStr[16]; // hetuw mod
-					// hetuwGetStringAge( ageStr, otherObj ); // hetuw mod
-                    // des = autoSprintf( "%s %s", des, ageStr ); // hetuw mod
-                    // desToDelete = des; // hetuw mod
-					// } // hetuw mod
+				if ( otherObj != NULL ) { // hetuw mod
+					char ageStr[16]; // hetuw mod
+					hetuwGetStringAge( ageStr, otherObj ); // hetuw mod
+                    des = autoSprintf( "%s %s", des, ageStr ); // hetuw mod
+                    desToDelete = des; // hetuw mod
+					} // hetuw mod
                 }
             else if( badBiome ) {
                 // we're over a bad biome
@@ -24023,6 +24023,8 @@ void LivingLifePage::pointerMove( float inX, float inY ) {
             mCurMouseOverID = - p.hitOtherPersonID;
 			HetuwMod::onPlayerHoverOver(p.hitOtherPersonID);
             mCurMouseOverBiome = -1;
+            
+            if( !HetuwMod::bDrawSelectedPlayerInfo ) overNothing = false;
             }
         }
     

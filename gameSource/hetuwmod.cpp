@@ -2858,7 +2858,7 @@ void HetuwMod::drawPlayerNames( LiveObject* player ) {
 		customFont->drawString( name->c_str(), playerNamePos, alignCenter );
 	} else if ( iDrawNames == 2 ) {
 		float textWidth = livingLifePage->hetuwMeasureStringHandwritingFont( player->name );
-		if( playerName[0] != 0 ) drawRect( playerNamePos, textWidth/2 + 6, 16 );
+		drawRect( playerNamePos, textWidth/2 + 6, 16 );
 		setDrawColor( playerNameColor[0], playerNameColor[1], playerNameColor[2], 1 );
 		livingLifePage->hetuwDrawWithHandwritingFont( player->name, playerNamePos, alignCenter );
 	} else if ( iDrawNames == 1 ) {
@@ -2919,25 +2919,18 @@ void HetuwMod::drawHighlightedPlayer() {
 	char str[16]; char age[8];
 	livingLifePage->hetuwGetStringAge( age, player );
 	char gender = getObject(player->displayID)->male ? 'M' : 'F';
-	sprintf(str, "%c %s", gender, age);
-	setDrawColor( 0.0, 0.0, 0.0, 0.8 );
-	textWidth = livingLifePage->hetuwMeasureScaledHandwritingFont( str, guiScale );
-	drawRect( playerNamePos, textWidth/2 + 6*guiScale, 16*guiScale );
-	setDrawColor( playerNameColor[0], playerNameColor[1], playerNameColor[2], 1 );
-	livingLifePage->hetuwDrawScaledHandwritingFont( str, playerNamePos, guiScale, alignCenter );
-    
 	char *relationStr;
 	if( player->relationName != NULL ) {
 		relationStr = player->relationName;
 	} else {
 		relationStr = "NO RELATION";
 	}
-	playerNamePos.y -= 32*guiScale;
+	sprintf(str, "%s %c %s", relationStr, gender, age);
 	setDrawColor( 0.0, 0.0, 0.0, 0.8 );
-	textWidth = livingLifePage->hetuwMeasureScaledHandwritingFont( relationStr, guiScale );
+	textWidth = livingLifePage->hetuwMeasureScaledHandwritingFont( str, guiScale );
 	drawRect( playerNamePos, textWidth/2 + 6*guiScale, 16*guiScale );
 	setDrawColor( playerNameColor[0], playerNameColor[1], playerNameColor[2], 1 );
-	livingLifePage->hetuwDrawScaledHandwritingFont( relationStr, playerNamePos, guiScale, alignCenter );
+	livingLifePage->hetuwDrawScaledHandwritingFont( str, playerNamePos, guiScale, alignCenter );
 }
 
 void HetuwMod::useTileRelativeToMe( int x, int y ) {
