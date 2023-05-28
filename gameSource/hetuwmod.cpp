@@ -2858,14 +2858,14 @@ void HetuwMod::drawPlayerNames( LiveObject* player ) {
 		customFont->drawString( name->c_str(), playerNamePos, alignCenter );
 	} else if ( iDrawNames == 2 ) {
 		float textWidth = livingLifePage->hetuwMeasureStringHandwritingFont( player->name );
-		drawRect( playerNamePos, textWidth/2 + 6, 16 );
+		if( playerName[0] != 0 ) drawRect( playerNamePos, textWidth/2 + 6, 16 );
 		setDrawColor( playerNameColor[0], playerNameColor[1], playerNameColor[2], 1 );
 		livingLifePage->hetuwDrawWithHandwritingFont( player->name, playerNamePos, alignCenter );
 	} else if ( iDrawNames == 1 ) {
 		char playerName[48];
 		removeLastName( playerName, player->name );
 		float textWidth = livingLifePage->hetuwMeasureStringHandwritingFont( playerName );
-		drawRect( playerNamePos, textWidth/2 + 6, 16 );
+		if( playerName[0] != 0 ) drawRect( playerNamePos, textWidth/2 + 6, 16 );
 		setDrawColor( playerNameColor[0], playerNameColor[1], playerNameColor[2], 1 );
 		livingLifePage->hetuwDrawWithHandwritingFont( playerName, playerNamePos, alignCenter );
 	}
