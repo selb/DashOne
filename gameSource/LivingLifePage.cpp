@@ -26299,9 +26299,9 @@ void LivingLifePage::keyDown( unsigned char inASCII ) {
             mXKeyDown = true;
             }
 	}
+    if (Phex::hasFocus && mSayField.isFocused()) mSayField.unfocusAll();
+    if (HetuwMod::livingLifeKeyDown(inASCII)) return;
 	if (!vogMode) {
-		if (Phex::hasFocus && mSayField.isFocused()) mSayField.unfocusAll();
-		if (HetuwMod::livingLifeKeyDown(inASCII)) return;
 		if (minitech::livingLifeKeyDown(inASCII)) return;
 	}
 
@@ -26325,6 +26325,8 @@ void LivingLifePage::keyDown( unsigned char inASCII ) {
             if( ! mSayField.isFocused() &&
                 serverSocketConnected &&
                 SettingsManager::getIntSetting( "vogModeOn", 0 ) ) {
+                    
+                
                 
                 if( ! vogMode ) {
                     sendToServerSocket( (char*)"VOGS 0 0#" );
@@ -26343,6 +26345,10 @@ void LivingLifePage::keyDown( unsigned char inASCII ) {
                                            lastScreenViewCenter.y );
                     }
                 else {
+                    
+                    HetuwMod::SetFixCamera(true);
+                    shouldMoveCamera = true;
+                    
                     sendToServerSocket( (char*)"VOGX 0 0#" );
                     vogMode = false;
                     if( vogPickerOn ) {
@@ -27123,7 +27129,7 @@ void LivingLifePage::keyUp( unsigned char inASCII ) {
         mXKeyDown = false;
         }
 
-	if (HetuwMod::livingLifeKeyUp(inASCII))
+    if (!vogMode && HetuwMod::livingLifeKeyUp(inASCII))
 		return;
 
     switch( inASCII ) {

@@ -1606,7 +1606,7 @@ void HetuwMod::livingLifeStep() {
 	}
 	
 	if (livingLifePage->hetuwIsVogMode()) {
-		if (intervalVogMove.step()) moveInVogMode();
+		if (!cameraIsFixed && intervalVogMove.step()) moveInVogMode();
 	}
 }
 
@@ -3254,6 +3254,14 @@ bool HetuwMod::livingLifeKeyDown(unsigned char inASCII) {
 
 	bool commandKey = isCommandKeyDown();
 	bool shiftKey = isShiftKeyDown();
+    
+    if( livingLifePage->hetuwIsVogMode() ) {
+        if (!commandKey && isCharKey(inASCII, charKey_FixCamera)) {
+            livingLifePage->hetuwToggleFixCamera();
+            return true;
+        }
+        return false;
+    }
 
 	//printf("hetuw key pressed %c, value: %i, shiftKey %i, commandKey %i\n", inASCII, (int)inASCII, (int)shiftKey, (int)commandKey);
 
@@ -3469,7 +3477,7 @@ bool HetuwMod::livingLifeKeyDown(unsigned char inASCII) {
 		return true;
 	}
 	if (!commandKey && isCharKey(inASCII, charKey_FixCamera)) {
-		if (!bHoldDownTo_FixCamera) livingLifePage->hetuwToggleFixCamera();
+		if (!bHoldDownTo_FixCamera && !livingLifePage->hetuwIsVogMode()) livingLifePage->hetuwToggleFixCamera();
 		else if (!cameraIsFixed) livingLifePage->hetuwToggleFixCamera();
 		return true;
 	}
@@ -3647,6 +3655,16 @@ bool HetuwMod::livingLifeKeyUp(unsigned char inASCII) {
 
 	bool commandKey = isCommandKeyDown();
 	bool shiftKey = isShiftKeyDown();
+    
+	if( livingLifePage->hetuwIsVogMode() )
+    if (!commandKey && isCharKey(inASCII, charKey_FixCamera)) {
+		if (bHoldDownTo_FixCamera && cameraIsFixed) {
+			livingLifePage->hetuwToggleFixCamera();
+			r = true;
+            return true;
+		}
+        return false;
+	}
 
 	if (inASCII == charKey_Up || inASCII == toupper(charKey_Up)) {
 		upKeyDown = false;
