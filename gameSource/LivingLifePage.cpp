@@ -26296,9 +26296,8 @@ void LivingLifePage::keyDown( unsigned char inASCII ) {
             mXKeyDown = true;
             }
 	}
-    if (Phex::hasFocus && mSayField.isFocused()) mSayField.unfocusAll();
     if (HetuwMod::livingLifeKeyDown(inASCII)) return;
-	if (!vogMode) {
+    if (!vogMode) {
 		if (minitech::livingLifeKeyDown(inASCII)) return;
 	}
 
@@ -26329,6 +26328,8 @@ void LivingLifePage::keyDown( unsigned char inASCII ) {
                     sendToServerSocket( (char*)"VOGS 0 0#" );
                     vogMode = true;
                     vogModeActuallyOn = false;
+                    
+                    Phex::onUpdateFocus(false);
 
                     vogPos = getOurLiveObject()->currentPos;
                     vogPickerOn = false;
@@ -27008,6 +27009,7 @@ void LivingLifePage::specialKeyDown( int inKeyCode ) {
         }
     else if( inKeyCode == MG_KEY_UP ||
         inKeyCode == MG_KEY_DOWN ) {
+        if( !Phex::hasFocus && !(TextField::isAnyFocused() && !mSayField.isFocused()) )
         if( ! mSayField.isFocused() && inKeyCode == MG_KEY_UP ) {
             if( mSentChatPhrases.size() > 0 ) {
                 mSayField.setText( 

@@ -3245,8 +3245,6 @@ bool HetuwMod::livingLifeKeyDown(unsigned char inASCII) {
 		livingLifePage->sendToServerSocket( message );
 	}
 
-	if (Phex::onKeyDown(inASCII)) return true;
-
 	if (livingLifePage->hetuwSayFieldIsFocused()) {
 		return false;
 	}
@@ -3262,6 +3260,8 @@ bool HetuwMod::livingLifeKeyDown(unsigned char inASCII) {
         }
         return false;
     }
+
+	if (Phex::onKeyDown(inASCII)) return true;
 
 	//printf("hetuw key pressed %c, value: %i, shiftKey %i, commandKey %i\n", inASCII, (int)inASCII, (int)shiftKey, (int)commandKey);
 
@@ -3651,8 +3651,6 @@ bool HetuwMod::livingLifeKeyUp(unsigned char inASCII) {
 
 	bool r = false;
 
-	if (Phex::onKeyUp(inASCII)) r = true;
-
 	bool commandKey = isCommandKeyDown();
 	bool shiftKey = isShiftKeyDown();
     
@@ -3665,6 +3663,8 @@ bool HetuwMod::livingLifeKeyUp(unsigned char inASCII) {
 		}
         return false;
 	}
+
+	if (!Phex::onKeyUp(inASCII)) r = true;
 
 	if (inASCII == charKey_Up || inASCII == toupper(charKey_Up)) {
 		upKeyDown = false;
