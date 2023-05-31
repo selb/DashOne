@@ -505,6 +505,8 @@ allyCommand "/ALLY"
 
 unfollowCommand "/UNFOLLOW"
 
+propertyCommand "/PROPERTY"
+
 
 familyLabel "+FAMILY+"
 leaderLabel "+LEADER+"

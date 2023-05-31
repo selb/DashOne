@@ -2739,15 +2739,56 @@ static char loadIntoMapFromFile( FILE *inFile,
            Time::getCurrentTime() < startTime + inTimeLimitSec ) {
         
         TestMapRecord r;
-                
-        char stringBuff[1000];
-                
-        int numRead = fscanf( inFile, "%d %d %d %d %999s", 
+        
+
+        // read a string of arbitrary length (container with an unknown
+        // number of slots)
+        // Old code used a static buffer of 1000 for this, but
+        // that will fail for longer strings
+        //
+        // For reference, old format string for scanf was "%d %d %d %d %999s"
+
+
+        // read ints first
+        int numRead = fscanf( inFile, "%d %d %d %d", 
                               &(r.x), &(r.y), &(r.biome),
-                              &(r.floor),
-                              stringBuff );
-                
-        if( numRead != 5 ) {
+                              &(r.floor) );
+        
+        if( numRead != 4 ) {
+            moreFileLeft = false;
+            break;
+            }
+        
+        // now skip string and measure position to get max length
+        int posBeforeString = ftell( inFile );
+        
+        // skip string
+        fscanf( inFile, "%*s" );
+
+        int posAfterString = ftell( inFile );
+        
+        // now we know how long string is
+        int stringLength = posAfterString - posBeforeString;
+        
+        if( stringLength <= 0 ) {
+            moreFileLeft = false;
+            break;
+            }
+
+        char *stringBuff = new char[ stringLength + 1 ];
+        
+        // rewind file to scan string
+        fseek( inFile, posBeforeString, SEEK_SET );
+        
+        char *formatString = autoSprintf( "%%%ds", stringLength );
+
+        numRead = fscanf( inFile, formatString, stringBuff );
+        
+        delete [] formatString;
+        
+
+        if( numRead != 1 ) {
+            delete [] stringBuff;
             moreFileLeft = false;
             break;
             }
@@ -2758,6 +2799,9 @@ static char loadIntoMapFromFile( FILE *inFile,
                 
         char **slots = split( stringBuff, ",", &numSlots );
                 
+        delete [] stringBuff;
+
+
         for( int i=0; i<numSlots; i++ ) {
                     
             if( i == 0 ) {
@@ -8760,6 +8804,24 @@ void getEvePosition( const char *inEmail, int inID, int *outX, int *outY,
 
             fclose( tempLog );
             }
+
+        if( inIncrementPosition ) {
+            // keep pushing Eve grid to the west of wherever we ended up putting
+            // this Eve
+            if( ave.x != eveLocation.x ||
+                ave.y != eveLocation.y ) {
+        
+                eveLocation.x = ave.x;
+                eveLocation.y = ave.y;
+                
+                File eveLocFile( NULL, "lastEveLocation.txt" );
+                char *locString = 
+                    autoSprintf( "%d,%d", eveLocation.x, eveLocation.y );
+                eveLocFile.writeToFile( locString );
+                delete [] locString;
+                }
+            }
+        
         }
     else {
         // player has never been an Eve that survived to old age before

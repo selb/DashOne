@@ -127,6 +127,8 @@ class EditorTransitionPage : public GamePage, public ActionListener {
         SpriteButton mSwapTopButton;
         SpriteButton mSwapBottomButton;
 
+        TextField mCommentField;
+
         void checkIfSaveVisible();
 
         void redoTransSearches( int inObjectID, char inClearSkip );

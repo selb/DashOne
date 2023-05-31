@@ -59,6 +59,7 @@
 #include "specialBiomes.h"
 #include "cravings.h"
 #include "offspringTracker.h"
+#include "ipBanList.h"
 
 
 #include "minorGems/util/random/JenkinsRandomSource.h"
@@ -258,6 +259,9 @@ static SimpleVector<char*> namedKillPhrases;
 static SimpleVector<char*> namedAfterKillPhrases;
 
 
+static SimpleVector<int> clueIndicesLeftToGive;
+
+
 
 static int nextOrderNumber = 1;
 
@@ -345,6 +349,14 @@ static float getHighestRecentScore() {
         }
     return highest;
     }
+
+
+
+WebRequest *defaultTimeoutWebRequest( const char *inURL ) {
+    // 10 second timeout for all web requests that server makes
+    return new WebRequest( "GET", inURL, NULL, NULL, 10 );
+    }
+
 
 
 
@@ -642,6 +654,9 @@ typedef struct FreshConnection {
         // for tracking connections that have failed to LOGIN 
         // in a timely manner
         double connectionStartTimeSeconds;
+
+        char *ipAddress;
+
 
         char *email;
         
@@ -985,6 +1000,18 @@ typedef struct LiveObject {
         double indoorBonusTime;
         double indoorBonusFraction;
         
+        // if isIndoors is false, when were they last indoors?
+        // this allows the effects of isIndoors to fade gradually over time
+        // and even-out briefly opened doors a bit more
+        double wasIndoorsLastAtTimestamp;
+        
+        // note that after isIndoors becomes false, indoorBonusFraction 
+        // stays set at last fraction when they were indoors
+        // so as time passes (away from the wasIndoorsLastAtTimestamp),
+        // we remember the last effect that they had when they were indoors
+        // and fade that.
+
+
 
         int foodStore;
         
@@ -1079,6 +1106,11 @@ typedef struct LiveObject {
 
         // list of positions owned by this player
         SimpleVector<GridPos> ownedPositions;
+        
+        // when player issues /property command, we tell them about
+        // the next property in their property list
+        int lastOwnedPositionInformed;
+        
 
         // list of owned positions that this player has heard about
         SimpleVector<GridPos> knownOwnedPositions;
@@ -1112,7 +1144,17 @@ typedef struct LiveObject {
         
         SimpleVector<char*> globalMessageQueue;
 
-
+        
+        // we count how many messages are received over a given block of time
+        // if too many messages are received, player is spamming messages
+        // with a macro or bot
+        // We disconnect them when this happens
+        // index 0 is for non-move messages
+        // index 1 is for move messages
+        double messageFloodBatchStartTime[2];
+        int messageFloodBatchCount[2];
+        
+        
     } LiveObject;
 
 
@@ -1152,9 +1194,16 @@ char getFemale( LiveObject *inPlayer ) {
     }
 
 
+GridPos getPlayerPos( LiveObject *inPlayer );
 
-// find most fit offspring
-static LiveObject *findFittestOffspring( int inPlayerID, int inSkipID ) {
+
+
+// find most fit offspring within maxDistance from inLocation
+// returns NULL if none found
+static LiveObject *findFittestOffspring( int inPlayerID, int inSkipID,
+                                         GridPos inLocation,
+                                         int inMaxDistance ) {
+
     LiveObject *fittestOffspring = NULL;
     double fittestOffspringFitness = 0;
 
@@ -1165,15 +1214,20 @@ static LiveObject *findFittestOffspring( int inPlayerID, int inSkipID ) {
             otherPlayer->id != inPlayerID &&
             otherPlayer->id != inSkipID ) {
             
-            if( otherPlayer->fitnessScore > fittestOffspringFitness ) {
+            if( distance( getPlayerPos( otherPlayer ), inLocation )
+                <= inMaxDistance ) {
                 
-                if( otherPlayer->lineage->getElementIndex( inPlayerID ) 
-                    != -1 ) {
+
+                if( otherPlayer->fitnessScore > fittestOffspringFitness ) {
+                
+                    if( otherPlayer->lineage->getElementIndex( inPlayerID ) 
+                        != -1 ) {
                     
-                    // player is direct offspring of inPlayer
-                    // (child, grandchild, etc).
-                    fittestOffspring = otherPlayer;
-                    fittestOffspringFitness = otherPlayer->fitnessScore;
+                        // player is direct offspring of inPlayer
+                        // (child, grandchild, etc).
+                        fittestOffspring = otherPlayer;
+                        fittestOffspringFitness = otherPlayer->fitnessScore;
+                        }
                     }
                 }
             }
@@ -1181,35 +1235,69 @@ static LiveObject *findFittestOffspring( int inPlayerID, int inSkipID ) {
     
     return fittestOffspring;
     }
+
+
+
+static LiveObject *findFittestCloseRelative( LiveObject *inPlayer,
+                                             int inMaxDistance ) {
+
+    GridPos location = getPlayerPos( inPlayer );
+
+    LiveObject *offspring = NULL;
     
+    // walk up through lineage and find fittest close relative
+    // fittest person who shares our mother
+    // fittest person who shares our gma
+    // fittest person who shares our ggma
+    
+    // start with ma
+    int lineageStep = 0;
+    
+    while( offspring == NULL &&
+           lineageStep < inPlayer->lineage->size() ) {
+            
+        offspring = findFittestOffspring( 
+            inPlayer->lineage->getElementDirect( lineageStep ),
+            inPlayer->id, location, inMaxDistance );
+        
+        lineageStep++;
+        }
+    return offspring;
+    }
+
 
 
 static LiveObject *findHeir( LiveObject *inPlayer ) {
+    GridPos location = getPlayerPos( inPlayer );
+    
+    // use followDistance to limit consideration for heir
+    int maxDistance = 
+        SettingsManager::getIntSetting( "followDistance", 5000 );
+
+    int hugeDistance = 999999999;
+
+
     LiveObject *offspring = NULL;
     
     if( getFemale( inPlayer ) ) {
-        offspring = findFittestOffspring( inPlayer->id, inPlayer->id );
+        offspring = findFittestOffspring( inPlayer->id, inPlayer->id,
+                                          location, maxDistance );
+        
+        if( offspring == NULL ) {
+            // none found in maxDistance, search in much larger distance
+            offspring = findFittestOffspring( inPlayer->id, inPlayer->id,
+                                              location, hugeDistance );
+            }
         }
     
     if( offspring == NULL ) {
         // no direct offspring found
         
-        // walk up through lineage and find oldest close relative
-        // oldest person who shares our mother
-        // oldest person who shares our gma
-        // oldest person who shares our ggma
+        offspring = findFittestCloseRelative( inPlayer, maxDistance );
         
-        // start with ma
-        int lineageStep = 0;
-        
-        while( offspring == NULL &&
-               lineageStep < inPlayer->lineage->size() ) {
-            
-            offspring = findFittestOffspring( 
-                inPlayer->lineage->getElementDirect( lineageStep ),
-                inPlayer->id );
-            
-            lineageStep++;
+        if( offspring != NULL ) {
+            // none found in maxDistance, search in much larger distance
+            findFittestCloseRelative( inPlayer, hugeDistance );
             }
         }
 
@@ -1395,6 +1483,12 @@ static void endOwnership( int inX, int inY, int inObjectID ) {
 
 
 
+
+static const char *getPropertyNameWord( int inX, int inY, int inWordIndex );
+
+
+
+
 SimpleVector<GridPos> newOwnerPos;
 
 SimpleVector<GridPos> recentlyRemovedOwnerPos;
@@ -1465,9 +1559,13 @@ void removeAllOwnership( LiveObject *inPlayer, char inProcessInherit = true ) {
                     
                     // send them a map pointer too
                     message = autoSprintf( "PS\n"
-                                           "%d/0 MY INHERITED PROPERTY "
+                                           "%d/0 MY INHERITED '%s %s' PROPERTY "
                                            "*prop %d *map %d %d\n#",
                                            heir->id,
+                                           getPropertyNameWord( p->x, p->y,
+                                                                0 ),
+                                           getPropertyNameWord( p->x, p->y,
+                                                                1 ),
                                            0,
                                            p->x - heir->birthPos.x,
                                            p->y - heir->birthPos.y );
@@ -1553,6 +1651,10 @@ static char checkReadOnly() {
 
 
 
+static void setupToolSlots( LiveObject *inPlayer );
+
+
+
 // returns a person to their natural state
 static void backToBasics( LiveObject *inPlayer ) {
     LiveObject *p = inPlayer;
@@ -1598,6 +1700,9 @@ static void backToBasics( LiveObject *inPlayer ) {
 
     p->learnedTools.deleteAll();
     p->partiallyLearnedTools.deleteAll();
+    p->numToolSlots = -1;
+    
+    setupToolSlots( p );
     }
 
 
@@ -2085,6 +2190,10 @@ static void deleteMembers( FreshConnection *inConnection ) {
         delete inConnection->ticketServerRequest;
         }
     
+    if( inConnection->ipAddress != NULL ) {
+        delete [] inConnection->ipAddress;
+        }
+
     if( inConnection->email != NULL ) {
         delete [] inConnection->email;
         }
@@ -2311,6 +2420,8 @@ void quitCleanup() {
     
     freeOffspringTracker();
     
+    freeIPBanList();
+
 
     freeMap();
 
@@ -2484,6 +2595,43 @@ static const char *getCurseWord( char *inSenderEmail,
 
 
 
+// result NOT destroyed by caller
+// a common property name for property gate at position x,y
+// all players see the same name
+static const char *getPropertyNameWord( int inX, int inY, int inWordIndex ) {
+    
+    if( curseWords.size() == 0 ) {
+        return "X";
+        }
+
+    if( curseSecret == NULL ) {
+        curseSecret = 
+            SettingsManager::getStringSetting( 
+                "statsServerSharedSecret", "sdfmlk3490sadfm3ug9324" );
+        }
+    
+    char *coordsPlusSecret = 
+        autoSprintf( "%d_%d_%s", inX, inY, curseSecret );
+    
+    unsigned int c = crc32( (unsigned char*)coordsPlusSecret, 
+                            strlen( coordsPlusSecret ) );
+    
+    delete [] coordsPlusSecret;
+
+    curseSource.reseed( c );
+    
+    // mix based on index
+    for( int i=0; i<inWordIndex; i++ ) {
+        curseSource.getRandomDouble();
+        }
+
+    int index = curseSource.getRandomBoundedInt( 0, curseWords.size() - 1 );
+    
+    return curseWords.getElementDirect( index );
+    }
+
+
+
 
 volatile char quit = false;
 
@@ -2575,7 +2723,14 @@ char readSocketFull( Socket *inSock, SimpleVector<char> *inBuffer ) {
 
 
 // NULL if there's no full message available
-char *getNextClientMessage( SimpleVector<char> *inBuffer ) {
+// if inLoginMessageOnly true, then we look for messages that start with
+// LOGIN or RLOGIN, and count sufficiently long messages that don't
+// start with either string as NONSENSE (this allows us to instantly reject 
+// web requests and other non-OHOL messages that don't end with # and don't
+// exceed our 200 char limit)
+char *getNextClientMessage( SimpleVector<char> *inBuffer,
+                            char inLoginMessageOnly = false ) {
+
     // find first terminal character #
 
     int index = inBuffer->getElementIndex( '#' );
@@ -2593,6 +2748,25 @@ char *getNextClientMessage( SimpleVector<char> *inBuffer ) {
             
             return stringDuplicate( "NONSENSE 0 0" );
             }
+        else if( inLoginMessageOnly && inBuffer->size() >= 6 ) {
+            char *buffString = inBuffer->getElementString();
+            
+            if( strstr( buffString, "LOGIN" ) != buffString &&
+                strstr( buffString, "RLOGIN" ) != buffString ) {
+                delete [] buffString;
+                
+                AppLog::info( 
+                    "More than 6 characters in client receive buffer "
+                    "with no LOGIN or RLOGIN present, when inLoginMessageOnly "
+                    "set, generating NONSENSE message." );
+                
+                return stringDuplicate( "NONSENSE 0 0" );
+                }
+            
+            delete [] buffString;
+            }
+        
+
 
         return NULL;
         }
@@ -2660,6 +2834,7 @@ typedef enum messageType {
     PHOTO,
     LEAD,
     UNFOL,
+    PROP,
     FLIP,
     UNKNOWN
     } messageType;
@@ -3086,6 +3261,9 @@ ClientMessage parseMessage( LiveObject *inPlayer, char *inMessage ) {
     else if( strcmp( nameBuffer, "UNFOL" ) == 0 ) {
         m.type = UNFOL;
         }
+    else if( strcmp( nameBuffer, "PROP" ) == 0 ) {
+        m.type = PROP;
+        }
     else if( strcmp( nameBuffer, "FLIP" ) == 0 ) {
         m.type = FLIP;
         }
@@ -3466,16 +3644,30 @@ double computeFoodDecrementTimeSeconds( LiveObject *inPlayer ) {
 
     inPlayer->indoorBonusTime = 0;
     
-    if( inPlayer->isIndoors &&
-        inPlayer->indoorBonusFraction > 0 &&
+    if( inPlayer->indoorBonusFraction > 0 &&
         computeAge( inPlayer ) > defaultActionAge ) {
         
-        // non-babies get a bonus for being indoors
-        inPlayer->indoorBonusTime = 
-            indoorFoodDecrementSecondsBonus *
-            inPlayer->indoorBonusFraction;
+        double fadeFactor = 1.0;
         
-        value += inPlayer->indoorBonusTime;
+        double maxFadeSeconds = 10;
+        
+        if( ! inPlayer->isIndoors ) {
+            double deltaTime = 
+                Time::getCurrentTime() - inPlayer->wasIndoorsLastAtTimestamp;
+            
+            // goes from 1 to 0 linearly over maxFadeSeconds
+            fadeFactor = 1 - deltaTime / maxFadeSeconds;
+            }
+        
+
+        if( fadeFactor > 0 ) {
+            // non-babies get a bonus for being indoors
+            inPlayer->indoorBonusTime = 
+                fadeFactor * indoorFoodDecrementSecondsBonus *
+                inPlayer->indoorBonusFraction;
+            
+            value += inPlayer->indoorBonusTime;
+            }
         }
     
     inPlayer->foodDrainTime = value;
@@ -4424,6 +4616,8 @@ static void recomputeHeatMap( LiveObject *inPlayer ) {
     if( inPlayer->isIndoors ) {
         // the more insulating the boundary, the bigger the bonus
         inPlayer->indoorBonusFraction = rBoundaryAverage;
+        
+        inPlayer->wasIndoorsLastAtTimestamp = Time::getCurrentTime();
         }
     
     
@@ -6078,7 +6272,7 @@ static void makePlayerSay( LiveObject *inPlayer, char *inToSay ) {
         if( isCurse ) {
             char *targetEmail = getCurseReceiverEmail( cursedName );
             if( targetEmail != NULL ) {
-                setDBCurse( inPlayer->email, targetEmail );
+                setDBCurse( inPlayer->id, inPlayer->email, targetEmail );
                 dbCurseTargetEmail = targetEmail;
                 }
             }
@@ -6098,7 +6292,7 @@ static void makePlayerSay( LiveObject *inPlayer, char *inToSay ) {
             spendCurseToken( inPlayer->email ) ) {
             
             isCurse = true;
-            setDBCurse( inPlayer->email, youCursePlayer->email );
+            setDBCurse( inPlayer->id, inPlayer->email, youCursePlayer->email );
             dbCurseTargetEmail = youCursePlayer->email;
             }
         else if( isBabyShortcut && babyCursePlayer != NULL &&
@@ -6112,7 +6306,7 @@ static void makePlayerSay( LiveObject *inPlayer, char *inToSay ) {
                 targetEmail = babyCursePlayer->origEmail;
                 }
             if( targetEmail != NULL ) {
-                setDBCurse( inPlayer->email, targetEmail );
+                setDBCurse( inPlayer->id, inPlayer->email, targetEmail );
                 dbCurseTargetEmail = targetEmail;
                 }
             }
@@ -6122,7 +6316,8 @@ static void makePlayerSay( LiveObject *inPlayer, char *inToSay ) {
             
             isCurse = true;
             
-            setDBCurse( inPlayer->email, inPlayer->lastBabyEmail );
+            setDBCurse( inPlayer->id, 
+                        inPlayer->email, inPlayer->lastBabyEmail );
             dbCurseTargetEmail = inPlayer->lastBabyEmail;
             }
         }
@@ -8571,6 +8766,9 @@ int processLoggedInPlayer( int inAllowOrForceReconnect,
 
     newObject.everHomesick = false;
 
+    newObject.lastOwnedPositionInformed = -1;
+    
+
     newObject.lastGateVisitorNoticeTime = 0;
     newObject.lastNewBabyNoticeTime = 0;
 
@@ -9367,6 +9565,7 @@ int processLoggedInPlayer( int inAllowOrForceReconnect,
     newObject.indoorBonusTime = 0;
     newObject.indoorBonusFraction = 0;
 
+    newObject.wasIndoorsLastAtTimestamp = 0;
     
     
                 
@@ -10234,6 +10433,11 @@ int processLoggedInPlayer( int inAllowOrForceReconnect,
 
     newObject.lastGlobalMessageTime = 0;
     
+    newObject.messageFloodBatchStartTime[0] = 0;
+    newObject.messageFloodBatchCount[0] = 0;
+    newObject.messageFloodBatchStartTime[1] = 0;
+    newObject.messageFloodBatchCount[1] = 0;
+
 
     newObject.birthPos.x = newObject.xd;
     newObject.birthPos.y = newObject.yd;
@@ -10674,6 +10878,11 @@ static void processWaitingTwinConnection( FreshConnection inConnection ) {
                 delete [] inConnection.twinCode;
                 inConnection.twinCode = NULL;
                 }
+            if( inConnection.ipAddress != NULL ) {
+                delete [] inConnection.ipAddress;
+                inConnection.ipAddress = NULL;
+                }
+            
             nextLogInTwin = false;
             return;
             }
@@ -10788,7 +10997,14 @@ static void processWaitingTwinConnection( FreshConnection inConnection ) {
                 strcmp( nextConnection->twinCode, twinCode ) == 0 ) {
                 
                 delete [] nextConnection->twinCode;
-                waitingForTwinConnections.deleteElement( i );
+                
+                if( nextConnection->ipAddress != NULL ) {
+                    delete [] nextConnection->ipAddress;
+                    nextConnection->ipAddress = NULL;
+                    }
+
+                waitingForTwinConnections.deleteElement( i );                
+
                 i--;
                 }
             }
@@ -12530,7 +12746,7 @@ void apocalypseStep() {
                                          reflectorURL );
         
                 apocalypseRequest =
-                    new WebRequest( "GET", url, NULL );
+                    defaultTimeoutWebRequest( url );
             
                 delete [] url;
                 }
@@ -12686,7 +12902,7 @@ void apocalypseStep() {
                     printf( "Starting new web request for %s\n", url );
                     
                     apocalypseRequest =
-                        new WebRequest( "GET", url, NULL );
+                        defaultTimeoutWebRequest( url );
                                 
                     delete [] url;
                     delete [] reflectorSharedSecret;
@@ -13914,6 +14130,7 @@ static void interruptAnyKillEmots( int inPlayerID,
 
 
 static void setPerpetratorHoldingAfterKill( LiveObject *nextPlayer,
+                                            LiveObject *hitPlayer,
                                             TransRecord *woundHit,
                                             TransRecord *rHit,
                                             TransRecord *r ) {
@@ -13935,6 +14152,86 @@ static void setPerpetratorHoldingAfterKill( LiveObject *nextPlayer,
         // specified in wound trans
         nextPlayer->holdingID = 
             woundHit->newActor;
+
+        
+        if( nextPlayer->holdingID > 0 && hitPlayer != NULL ) {
+            if( getObject( nextPlayer->holdingID )->giveClue ) {
+                
+                char newVictimEmot = false;
+                
+                if( woundHit->newTarget > 0 ) {
+                    ForcedEffects e = 
+                        checkForForcedEffects( woundHit->newTarget );
+                    if( e.emotIndex > 0 && 
+                        e.ttlSec == -1 ) {
+                        // permanent emot specified
+                        // make sure player doesn't already have this
+                        // emot in place
+                        if( hitPlayer->
+                            permanentEmots.getElementIndex( e.emotIndex )
+                            == -1 ) {
+                            newVictimEmot = true;
+                            }
+                        }
+                    }
+                
+                if( newVictimEmot ) {
+                
+                    char *contMixed = 
+                        SettingsManager::getSettingContents( "secretMessage" );
+                    char *cont = stringToUpperCase( contMixed );
+            
+                    delete [] contMixed;
+                    
+                    int contLen = strlen( cont );
+                    
+                    if( clueIndicesLeftToGive.size() == 0 ) {
+                        // all have been given (or this is our first clue)
+                        // refill with valid indices
+                        for( int i=0; i<contLen; i++ ) {
+                            if( cont[i] != ' ' 
+                                &&
+                                cont[i] != '\n' ) {
+                                clueIndicesLeftToGive.push_back( i );
+                                }
+                            }
+                        }
+                    
+                    
+                    if( clueIndicesLeftToGive.size() > 0 ) {
+                        int i = 
+                            randSource.getRandomBoundedInt( 
+                                0, 
+                                clueIndicesLeftToGive.size() - 1 );
+                        
+                        int letterPick = 
+                            clueIndicesLeftToGive.getElementDirect( i );
+                        clueIndicesLeftToGive.deleteElement( i );
+                        
+                        char *message = 
+                            autoSprintf( 
+                                "ANOTHER NECK HAS MET YOUR SWORD.**"
+                                "ANOTHER CLUE (I KEEP MY WORD):  %d : %c",
+                                letterPick + 1, cont[letterPick] );
+                        
+                        sendGlobalMessage( message, nextPlayer );
+                        delete [] message;
+                        }
+                    delete [] cont;
+                    }
+                else {
+                    char *message = 
+                        autoSprintf( 
+                            "THAT NECK WAS 'READY CUT IN TWO.**"
+                            "FIND MORE FRESH NECKS TO EARN YOUR CLUE." );
+                    
+                    sendGlobalMessage( message, nextPlayer );
+                    delete [] message;
+                    }
+                }
+            }
+        
+
         holdingSomethingNew( nextPlayer,
                              oldHolding );
         }
@@ -14195,6 +14492,7 @@ void executeKillAction( int inKillerIndex,
                             getPTrans( nextPlayer->holdingID, 0 );
 
                         setPerpetratorHoldingAfterKill( nextPlayer,
+                                                        hitPlayer,
                                                         woundHit, rHit, r );
                         
                         ForcedEffects e = 
@@ -14443,7 +14741,8 @@ void executeKillAction( int inKillerIndex,
 
                 int oldHolding = nextPlayer->holdingID;
 
-                setPerpetratorHoldingAfterKill( nextPlayer, 
+                setPerpetratorHoldingAfterKill( nextPlayer,
+                                                hitPlayer,
                                                 woundHit, rHit, r );
 
                 // if they are moving, end their move NOW
@@ -15257,9 +15556,7 @@ static char isPlayerBlockedFromHoldingByPosse( LiveObject *inPlayer ) {
 static char heldNeverDrop( LiveObject *inPlayer ) {
     if( inPlayer->holdingID > 0 ) {        
         ObjectRecord *o = getObject( inPlayer->holdingID );
-        if( strstr( o->description, "+neverDrop" ) != NULL ) {
-            return true;
-            }
+        return o->neverDrop;
         }
     return false;
     }
@@ -15939,33 +16236,80 @@ static void leaderDied( LiveObject *inLeader ) {
 
     if( inLeader->followingID == -1 &&
         directFollowers.size() > 0 ) {
+
+        int maxDistance = 
+            SettingsManager::getIntSetting( "followDistance", 5000 );
+
+        GridPos location = getPlayerPos( inLeader );
         
+
         LiveObject *fittestFollower = directFollowers.getElementDirect( 0 );
         // -1, because lowest possible score is 0
         // we will find a non-exiled follower this way
         double fittestFitness = -1;
-        
+
         for( int i=0; i<directFollowers.size(); i++ ) {
             LiveObject *otherPlayer = directFollowers.getElementDirect( i );
             
-            if( otherPlayer->fitnessScore > fittestFitness &&
+            if( otherPlayer->fitnessScore > fittestFitness
+                &&
+                distance( location, getPlayerPos( otherPlayer ) ) <= maxDistance
+                &&
                 ! isExiled( inLeader, otherPlayer ) ) {
                 
                 fittestFitness = otherPlayer->fitnessScore;
                 fittestFollower = otherPlayer;
                 }
+            }        
+
+        if( fittestFitness == -1 ) {
+            // didn't find one within radius
+            // try again with no radius limit
+
+            for( int i=0; i<directFollowers.size(); i++ ) {
+                LiveObject *otherPlayer = directFollowers.getElementDirect( i );
+                
+                if( otherPlayer->fitnessScore > fittestFitness &&
+                    ! isExiled( inLeader, otherPlayer ) ) {
+                    
+                    fittestFitness = otherPlayer->fitnessScore;
+                    fittestFollower = otherPlayer;
+                    }
+                }
             }
         
+
         // if all are exiled, then we find fittest follower
         if( fittestFitness == -1 ) {
+            
+            // first, look in limited radius
             for( int i=0; i<directFollowers.size(); i++ ) {
                 LiveObject *otherPlayer = directFollowers.getElementDirect( i );
             
                 // ignore exile status this time
-                if( otherPlayer->fitnessScore > fittestFitness ) {
+                if( otherPlayer->fitnessScore > fittestFitness 
+                    &&
+                    distance( location, getPlayerPos( otherPlayer ) ) 
+                    <= maxDistance ) {
                 
                     fittestFitness = otherPlayer->fitnessScore;
                     fittestFollower = otherPlayer;
+                    }
+                }
+
+            if( fittestFitness == -1 ) {
+                // no exiled followers in radius
+                // try again with no radius limit
+                for( int i=0; i<directFollowers.size(); i++ ) {
+                    LiveObject *otherPlayer = 
+                        directFollowers.getElementDirect( i );
+            
+                    // ignore exile status this time
+                    if( otherPlayer->fitnessScore > fittestFitness ) {
+                        
+                        fittestFitness = otherPlayer->fitnessScore;
+                        fittestFollower = otherPlayer;
+                        }
                     }
                 }
             }
@@ -16817,6 +17161,80 @@ static void sendCraving( LiveObject *inPlayer ) {
 
 
 
+// returns true if a flood detected for this player
+static char messageFloodCheck( LiveObject *inPlayer, messageType inType ) {
+    
+    // currently no limit on these messages
+    // Mousing over a huge graveyard or set of gates can send loads of OWNER
+    // or GRAVE messages all at once
+    // (And note that OWNER and GRAVE messages don't result in anything being
+    //  sent to nearby players)
+    if( inType == OWNER ||
+        inType == GRAVE ) {
+        return false;
+        }
+    
+    //  FLIP and SAY are already throttled elsewhere in the server code
+
+
+    // all other message types, including MOVE, result in messages being
+    // sent to all nearby players.
+    // Thus, if there's a true flood of these from one client (like actually
+    // buggy behavior), it can cause other player's message queues to fill up,
+    // leading to force-disconnects for nearby high-latency players
+
+    // even WASD movement shouldn't be sending dozens of messages per second
+    
+    // BUT... the current backpack button in one mod is allowing a ridiculous
+    // message flood.  Players who are exploiting that to flood other players
+    // will be disconnected.
+
+    // 60 messages in 5 seconds means 12 messages per second
+    // Pretty safe to assume that no non-bot/macro player is clicking that fast
+    // World record for human mouse clicks is currently 11.6 per second.
+
+    // Note that the real way to fix this would be to watch for clients that are
+    // sending multiple "blocking" messages (like USE or DROP) without waiting
+    // for a server response.  Correct behavior is to receve the result of 
+    // your action from the server before sending another action to the server.
+
+    // However, some mod clients are apparently "railroading" action messages in
+    // the normal course of play, and I don't want to break the game
+    // for all the players using those mods.
+
+
+    int index = 0;
+    int maxMessageRate = 40;
+    
+    if( inType == MOVE ) {
+        index = 1;
+        maxMessageRate = 80;
+        }
+    
+    inPlayer->messageFloodBatchCount[index] ++;
+
+    double curTime = Time::getCurrentTime();
+
+
+    char flooding = false;
+
+    if( curTime - inPlayer->messageFloodBatchStartTime[index] >= 5 ) {
+        // a 5-second batch is finished
+
+        if( inPlayer->messageFloodBatchCount[index] >= maxMessageRate ) {
+            flooding = true;
+            }
+        
+        // start a new batch
+        inPlayer->messageFloodBatchStartTime[index] = curTime;
+        inPlayer->messageFloodBatchCount[index] = 0;
+        }
+
+    return flooding;
+    }
+
+
+
 
 int main() {
 
@@ -17081,6 +17499,7 @@ int main() {
 
     initOffspringTracker();
     
+    initIPBanList();
 
 
     char rebuilding;
@@ -17692,18 +18111,46 @@ int main() {
 
             if( sock != NULL ) {
                 HostAddress *a = sock->getRemoteHostAddress();
+
+                if( a == NULL ) {
+                    // reject connection from unknown address
+                    delete sock;
+                    sock = NULL;
+                    }
+                else {
+                    if( isIPBanned( a->mAddressString ) ) {
+                        // reject connection from banned IP
+                        // don't even print a log message about this
+                        // save disk space when we are getting hammered by bots
+                        delete sock;
+                        sock = NULL;
+                        }
+                    delete a;
+                    }
+                }
+            
+
+            if( sock != NULL ) {
+                FreshConnection newConnection;
+
+                HostAddress *a = sock->getRemoteHostAddress();
                 
                 if( a == NULL ) {    
                     AppLog::info( "Got connection from unknown address" );
+                    
+                    newConnection.ipAddress = stringDuplicate( "" );
                     }
                 else {
                     AppLog::infoF( "Got connection from %s:%d",
                                   a->mAddressString, a->mPort );
+                    
+                    newConnection.ipAddress = 
+                        stringDuplicate( a->mAddressString );
+
                     delete a;
                     }
             
 
-                FreshConnection newConnection;
                 
                 newConnection.connectionStartTimeSeconds = 
                     Time::getCurrentTime();
@@ -18046,6 +18493,7 @@ int main() {
                     
                     delete [] nextConnection->clientTag;
                     nextConnection->clientTag = NULL;
+                    
 
                     if( nextConnection->twinCode != NULL
                         && 
@@ -18057,7 +18505,12 @@ int main() {
                             delete [] nextConnection->twinCode;
                             nextConnection->twinCode = NULL;
                             }
-                                
+
+                        if( nextConnection->ipAddress != NULL ) {
+                            delete [] nextConnection->ipAddress;
+                            nextConnection->ipAddress = NULL;
+                            }
+                        
                         processLoggedInPlayer( 
                             nextConnection->reconnectOnly ? 2 : true,
                             nextConnection->sock,
@@ -18103,10 +18556,43 @@ int main() {
                 
                 if( ! nextConnection->shutdownMode ) {
                     message = 
-                        getNextClientMessage( nextConnection->sockBuffer );
+                        getNextClientMessage( nextConnection->sockBuffer,
+                                              // treat non-LOGIN and non-RLOGIN
+                                              // messages as NONSENSE
+                                              true );
                     }
                 else {
                     timeLimit = 5;
+
+                    
+                    // client shouldn't be sending anything after
+                    // they see shutdown message
+                    // If we do receive something, it's probably a non
+                    // client or a web bot, sending us junk
+                    // don't keep a connection open to them
+                    message = 
+                        getNextClientMessage( nextConnection->sockBuffer,
+                                              // treat non-LOGIN and non-RLOGIN
+                                              // messages as NONSENSE
+                                              true );
+                    if( message != NULL ) {
+                        delete [] message;
+                        message = NULL;
+                        
+                        AppLog::info( "Client incorrectly sent a message "
+                                      "after receiving SHUTDOWN or SERVER_FULL "
+                                      "message, "
+                                      "client rejected immediately." );
+                        nextConnection->error = true;
+                        nextConnection->errorCauseString =
+                            "Unexpected post-shutdown message";
+                        
+                        // force connection close right away
+                        // don't send REJECTED message and wait
+                        nextConnection->rejectedSendTime = 1;
+                        
+                        addBadConnectionForIP( nextConnection->ipAddress );
+                        }
                     }
                 
                 if( message != NULL ) {
@@ -18237,7 +18723,7 @@ int main() {
                                 delete [] encodedEmail;
 
                                 nextConnection->ticketServerRequest =
-                                    new WebRequest( "GET", url, NULL );
+                                    defaultTimeoutWebRequest( url );
                                 nextConnection->ticketServerAccepted = false;
 
                                 nextConnection->ticketServerRequestStartTime
@@ -18297,6 +18783,13 @@ int main() {
                                             delete [] nextConnection->twinCode;
                                             nextConnection->twinCode = NULL;
                                             }
+                                        if( nextConnection->ipAddress
+                                            != NULL ) {
+                                            delete []
+                                                nextConnection->ipAddress;
+                                            nextConnection->ipAddress = NULL;
+                                            }
+                                        
                                         processLoggedInPlayer(
                                             nextConnection->reconnectOnly ? 
                                             2 : true,
@@ -18320,6 +18813,11 @@ int main() {
                             nextConnection->error = true;
                             nextConnection->errorCauseString =
                                 "Bad login message";
+                            
+                            // close connection with REJECTED
+                            // message and grace period
+                            // they at least tried to send a LOGIN
+                            // message of some kind
                             }
 
 
@@ -18328,10 +18826,16 @@ int main() {
                         }
                     else {
                         AppLog::info( "Client's first message not LOGIN, "
-                                      "client rejected." );
+                                      "client rejected immediately." );
                         nextConnection->error = true;
                         nextConnection->errorCauseString =
                             "Unexpected first message";
+                        
+                        // force connection close right away
+                        // don't send REJECTED message and wait
+                        nextConnection->rejectedSendTime = 1;
+
+                        addBadConnectionForIP( nextConnection->ipAddress );
                         }
                     
                     delete [] message;
@@ -18349,6 +18853,14 @@ int main() {
                     nextConnection->error = true;
                     nextConnection->errorCauseString =
                         "Login timeout";
+                    
+                    // note that this is a less noxious offense than sending
+                    // bad first messages
+                    // A slow client could do this innocently sometimes
+                    // but if they do it repeatedly, we ban them for a while.
+                    // Because a DDOS attack could just connect and sit there
+                    // silently, to fill up slots.
+                    addBadConnectionForIP( nextConnection->ipAddress );    
                     }
                 }
             }
@@ -18378,6 +18890,8 @@ int main() {
                     
                 nextConnection->errorCauseString =
                     "Socket read failed";
+                
+                addBadConnectionForIP( nextConnection->ipAddress );        
                 }
             }
             
@@ -18864,7 +19378,12 @@ int main() {
                 // as a different type
                 RESTART_MESSAGE_ACTION:
                 
-                if( m.type == UNKNOWN ) {
+
+                if( messageFloodCheck( nextPlayer, m.type ) ) {
+                    setPlayerDisconnected( nextPlayer, 
+                                           "Message flooding detected" );
+                    }
+                else if( m.type == UNKNOWN ) {
                     AppLog::info( "Client error, unknown message type." );
                     
                     //setPlayerDisconnected( nextPlayer, 
@@ -19003,6 +19522,13 @@ int main() {
                                 allow = true;
                                 break;
                                 }
+                            else if( strcmp(
+                                         "*",
+                                         list->getElementDirect( i ) ) == 0 ) {
+                                // wildcard present in settings file
+                                allow = true;
+                                break;
+                                }
                             }
                         
                         list->deallocateStringElements();
@@ -19070,6 +19596,13 @@ int main() {
                         players.size() > 1 ) {
 
                         nextPlayer->vogJumpIndex--;
+
+                        // if several people have died since last VOGP
+                        // sent by this player, their vogJumpIndex can
+                        // be out of bounds
+                        if( nextPlayer->vogJumpIndex >= players.size() ) {
+                            nextPlayer->vogJumpIndex = players.size() - 1;
+                            }
 
                         if( nextPlayer->vogJumpIndex == i ) {
                             nextPlayer->vogJumpIndex--;
@@ -19681,6 +20214,52 @@ int main() {
                         autoSprintf( "PS\n"
                                      "%d/0 +NO LEADER+\n#",
                                  nextPlayer->id );
+                    sendMessageToPlayer( nextPlayer, 
+                                         psMessage, strlen( psMessage ) );
+                    delete [] psMessage;
+                    }
+                else if( m.type == PROP ) {
+
+                    char *psMessage;
+                    
+                    if( nextPlayer->ownedPositions.size() > 0 ) {
+                        
+                        // inform them about next one
+                        nextPlayer->lastOwnedPositionInformed++;
+
+                        if( nextPlayer->lastOwnedPositionInformed >=
+                            nextPlayer->ownedPositions.size() ) {
+                            // wrap around
+                            nextPlayer->lastOwnedPositionInformed = 0;
+                            }
+                        
+
+                        GridPos *p = 
+                            nextPlayer->ownedPositions.getElement(
+                                nextPlayer->lastOwnedPositionInformed );
+                        
+                        // send them a map pointer
+                        psMessage = 
+                            autoSprintf( "PS\n"
+                                         "%d/0 MY '%s %s' PROPERTY "
+                                         "*prop %d *map %d %d\n#",
+                                         nextPlayer->id,
+                                         getPropertyNameWord( p->x, p->y,
+                                                              0 ),
+                                         getPropertyNameWord( p->x, p->y,
+                                                              1 ),
+                                         0,
+                                         p->x - nextPlayer->birthPos.x,
+                                         p->y - nextPlayer->birthPos.y );
+                        }
+                    else {
+                        // they own nothing
+                        psMessage = 
+                            autoSprintf( "PS\n"
+                                         "%d/0 +NO PROPERTY+\n#",
+                                         nextPlayer->id );
+                        }
+                    
                     sendMessageToPlayer( nextPlayer, 
                                          psMessage, strlen( psMessage ) );
                     delete [] psMessage;
@@ -21009,6 +21588,10 @@ int main() {
                             }
                         
                         if( otherToFollow != NULL ) {
+                            int followDistance = 
+                                SettingsManager::getIntSetting( 
+                                    "followDistance", 5000 );
+
                             if( otherToFollow == nextPlayer ) {
                                 if( nextPlayer->followingID != -1 ) {
                                     nextPlayer->followingID = -1;
@@ -21016,7 +21599,14 @@ int main() {
                                     }
                                 }
                             else if( nextPlayer->followingID != 
-                                     otherToFollow->id ) {
+                                     otherToFollow->id 
+                                     &&
+                                     // forbid follow action from
+                                     // very far away
+                                     distance( getPlayerPos( nextPlayer ),
+                                               getPlayerPos( otherToFollow ) ) 
+                                     <= followDistance ) {
+                                
                                 nextPlayer->followingID = otherToFollow->id;
                                 nextPlayer->followingUpdate = true;
                                 
@@ -22357,6 +22947,25 @@ int main() {
                                         nextPlayer->
                                             ownedPositions.push_back( newPos );
                                         newOwnerPos.push_back( newPos );
+
+                                        // make them speak the new name
+                                        // to themselves
+                                        char *psMessage = 
+                                            autoSprintf(
+                                              "PS\n"
+                                              "%d/0 MY NEW '%s %s' PROPERTY\n#",
+                                              nextPlayer->id,
+                                              getPropertyNameWord( m.x, m.y,
+                                                                   0 ),
+                                              getPropertyNameWord( m.x, m.y,
+                                                                   1 ) );
+                                                
+                                        sendMessageToPlayer( 
+                                            nextPlayer, 
+                                            psMessage, 
+                                            strlen( psMessage ) );
+                                        
+                                        delete [] psMessage;
                                         }
                                 
 
@@ -22776,7 +23385,8 @@ int main() {
                                 
                                 if( ! usedOnFloor && obj->foodValue == 0 &&
                                     // player didn't try to click something
-                                    m.id == -1 ) {
+                                    m.id == -1 &&
+                                    ! obj->neverDrop ) {
                                     
                                     // get no-target transtion
                                     // (not a food transition, since food
@@ -24072,6 +24682,8 @@ int main() {
 
                                     
                                             if( ! targetObj->permanent
+                                                &&
+                                                ! droppedObj->neverDrop
                                                 &&
                                                 canPickup( 
                                                     targetObj->id,
@@ -26875,7 +27487,10 @@ int main() {
                         // a new permanent emot
                         LiveObject *pO = getLiveObject( pID );
                         if( pO != NULL ) {
-                            pO->permanentEmots.push_back( eInd );
+                            if( pO->permanentEmots.getElementIndex( eInd ) ==
+                                -1 ) {
+                                pO->permanentEmots.push_back( eInd );
+                                }
                             }
                         }
                         
@@ -29199,9 +29814,9 @@ int main() {
             }
 
 
-        if( players.size() == 0 && newConnections.size() == 0 ) {
+        if( players.size() == 0 ) {
             if( shutdownMode ) {
-                AppLog::info( "No live players or connections in shutdown " 
+                AppLog::info( "No live players in shutdown " 
                               " mode, auto-quitting." );
                 quit = true;
                 }

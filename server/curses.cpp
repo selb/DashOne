@@ -1,5 +1,6 @@
- #include "curses.h"
+#include "curses.h"
 #include "curseLog.h"
+#include "serverCalls.h"
 
 
 #include "minorGems/util/SettingsManager.h"
@@ -323,7 +324,6 @@ static void stepCurses() {
             if( r->livedTimeSinceScoreDecrement + aliveTime >= decrementTime ) {
                 r->score --;
                 
-                logCurseScore( r->email, r->score );
                 
                 r->livedTimeSinceScoreDecrement = 0;
                 r->aliveStartTimeSinceScoreDecrement = curTime;
@@ -655,9 +655,6 @@ char cursePlayer( int inGiverID, int inGiverLineageEveID, char *inGiverEmail,
         receiverRecord->aliveStartTimeSinceScoreDecrement = curTime;
         }
 
-    logCurse( inGiverID, inGiverEmail, receiverRecord->email );
-    
-    logCurseScore( receiverRecord->email, receiverRecord->score );
     
 
     if( useCurseServer ) {
@@ -777,7 +774,7 @@ CurseStatus getCurseLevel( char *inPlayerEmail ) {
         delete [] encodedEmail;
         delete [] hash;
 
-        r.request = new WebRequest( "GET", url, NULL );
+        r.request = defaultTimeoutWebRequest( url );
         printf( "Starting new web request for %s\n", url );
                     
         delete [] url;
@@ -863,7 +860,7 @@ void stepCurseServerRequests() {
                     
             delete [] encodedEmail;
 
-            r->request = new WebRequest( "GET", url, NULL );
+            r->request = defaultTimeoutWebRequest( url );
             printf( "Starting new web request for %s\n", url );
             
             delete [] url;
@@ -937,7 +934,7 @@ void stepCurseServerRequests() {
                 delete [] encodedEmail;
                 delete [] hash;
 
-                r->request = new WebRequest( "GET", url, NULL );
+                r->request = defaultTimeoutWebRequest( url );
                 printf( "Starting new web request for %s\n", url );
                     
                 delete [] url;

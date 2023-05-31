@@ -1691,6 +1691,9 @@ static double workingSlotRots[MAX_WORKING_SPRITES];
 static doublePair workingSlotOffsets[MAX_WORKING_SPRITES];
 
 
+static char headlessSkipFlags[MAX_WORKING_SPRITES];
+
+
 static double processFrameTimeWithPauses( AnimationRecord *inAnim,
                                           int inLayerIndex,
                                           // true if sprite, false if slot
@@ -1950,6 +1953,49 @@ HoldingPos drawObjectAnim( int inObjectID, int inDrawBehindSlots,
             mouthIndex = -1;
             }
         }
+
+
+    // otherEmote (over face) has power to hide head entirely
+    char headless = false;
+    if( headIndex != -1 &&
+        drawWithEmots.size() > 0 &&
+        obj->numSprites < MAX_WORKING_SPRITES ) {
+        
+        for( int e=0; e<drawWithEmots.size(); e++ ) {
+            if( drawWithEmots.getElementDirect(e)->otherEmot != 0 ) {
+                ObjectRecord *o = getObject( 
+                    drawWithEmots.getElementDirect(e)->otherEmot );
+                
+                if( o->hideHead ) {
+                    headless = true;
+                    }
+                }
+            }
+
+        if( headless ) {
+            
+            // look for a part that's even lower than head
+            // but has head as a parent
+            for( int i=0; i<obj->numSprites; i++ ) {
+                // flag all objects that have head as parent
+                headlessSkipFlags[i] = false;
+                
+                int p = obj->spriteParent[i];
+
+                // walk up parent chain until we reach head or fall off
+                while( p != -1 && p != headIndex ) {
+                    p = obj->spriteParent[p];
+                    }
+
+                if( p == headIndex ) {
+                    headlessSkipFlags[i] = true;
+                    } 
+                }
+            headlessSkipFlags[headIndex] = true;
+            }
+        }
+    
+    
 
     int topBackArmIndex = -1;
     
@@ -2536,6 +2582,14 @@ HoldingPos drawObjectAnim( int inObjectID, int inDrawBehindSlots,
             }
         }
 
+        if( headless &&
+            headlessSkipFlags[i] ) {
+            // skip drawing head and everything that is a child of it
+            // this should still draw hat floating above
+            skipSprite = true;
+            }
+        
+
         if( !inHeldNotInPlaceYet && 
             inHideClosestArm == 1 && 
             frontArmIndices.getElementIndex( i ) != -1 ) {
@@ -3103,7 +3157,7 @@ HoldingPos drawObjectAnim( int inObjectID, int inDrawBehindSlots,
 
 
         // eye emot on top of eyes
-        if( i == eyesIndex )
+        if( i == eyesIndex && !headless )
         for( int e=0; e<drawWithEmots.size(); e++ )
         if( drawWithEmots.getElementDirect(e)->eyeEmot != 0 ) {
             
@@ -3155,7 +3209,7 @@ HoldingPos drawObjectAnim( int inObjectID, int inDrawBehindSlots,
         if( ( ( eyesIndex != -1 && i == eyesIndex ) 
               ||
               ( eyesIndex == -1 && i == headIndex ) )
-            && obj->person )
+            && obj->person  && !headless )
         for( int e=0; e<drawWithEmots.size(); e++ )
         if( drawWithEmots.getElementDirect(e)->faceEmot != 0 ) {
             
@@ -3190,7 +3244,7 @@ HoldingPos drawObjectAnim( int inObjectID, int inDrawBehindSlots,
 
         // mouth on top of head
         // but only if there's a mouth to be replaced
-        if( i == headIndex && mouthIndex != -1 )
+        if( i == headIndex && mouthIndex != -1 && !headless )
         for( int e=0; e<drawWithEmots.size(); e++ )
         if( drawWithEmots.getElementDirect(e)->mouthEmot != 0 ) {
             
@@ -3224,7 +3278,7 @@ HoldingPos drawObjectAnim( int inObjectID, int inDrawBehindSlots,
         // other emote tests depend on eyes index or mouth index, which
         // are forced to 0 for non-people (and become -1 above), but 
         // this does not happen for headIndex
-        if( i == headIndex && obj->person )
+        if( i == headIndex && obj->person && !headless )
         for( int e=0; e<drawWithEmots.size(); e++ )
         if( drawWithEmots.getElementDirect(e)->otherEmot != 0 ) {
             

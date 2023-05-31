@@ -83,6 +83,8 @@ typedef struct TransRecord {
         int newActorNoChange;
         int newTargetNoChange;
         
+        char *comment;
+
     } TransRecord;
 
 
@@ -212,6 +214,8 @@ void addTrans( int inActor, int inTarget,
                float inTargetMinUseFraction,
                int inMove,
                int inDesiredMoveDist,
+               // destroyed by caller
+               const char *inComment,
                float inActorChangeChance = 1.0f,
                float inTargetChangeChance = 1.0f,
                int inNewActorNoChange = -1,
