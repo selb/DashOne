@@ -14694,7 +14694,7 @@ void LivingLifePage::step() {
                 
                 if( numLines > 1 ) {
                     displayGlobalMessage( lines[1] );
-                    HetuwMod::writeLineToLogs("globalMessage", string(messageFromServer));           
+                    HetuwMod::writeLineToLogs("globalMessage", string(lines[1]));           
                     }
                 for( int i=0; i<numLines; i++ ) {
                     delete [] lines[i];
